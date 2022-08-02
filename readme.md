@@ -8,6 +8,15 @@ python interface for makerdao's [multicall](https://github.com/makerdao/multical
 pip install multicall
 ```
 
+## Differences from `banteg/multicall`
+
+- Uses `ThreadPoolExecutor` instead of `asyncio`+`ProcessPoolExecutor`.
+- Some interface changes; see below.
+- Removed default `Web3` instance.
+- Batch sizes and number of workers specified by user; removed `NotSoBrightBatcher`.
+- A maximum of one connection per worker.
+
+
 ## example
 
 ```python
@@ -59,7 +68,7 @@ use `Call(...)()` with predefined args or `Call(...)(args)` to reuse a prepared 
 
 use `decode_output(output)` with to decode the output and process it with `returns` handlers.
 
-### `Multicall(w3, calls, batch_size=500, block_id=None, retries=3, require_success=True, workers=min(24, multiprocessing.cpu_count()))`
+### `Multicall(w3, calls, batch_size=500, retries=3, require_success=True, workers=...)`
 
 - `w3` is a `Web3` instance to be used for the multicalls.
 - `calls` is a list of `Call`s with prepared values.
