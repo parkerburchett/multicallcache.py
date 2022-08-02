@@ -7,11 +7,8 @@ from eth_utils import to_checksum_address
 from web3 import Web3
 
 from multicall import Signature
-from multicall.constants import Network, w3
-from multicall.exceptions import StateOverrideNotSupported
 from multicall.loggers import setup_logger
-from multicall.utils import (chain_id, get_async_w3, run_in_subprocess,
-                             state_override_supported)
+
 
 logger = setup_logger(__name__)
 
@@ -19,22 +16,21 @@ AnyAddress = Union[str,Address,ChecksumAddress,HexAddress]
 
 class Call:
     def __init__(
-        self, 
-        target: AnyAddress, 
+        self,
+        target: AnyAddress,
         function: Union[str,Iterable[Union[str,Any]]], # 'funcName(dtype)(dtype)' or ['funcName(dtype)(dtype)', input0, input1, ...]
-        returns: Optional[Iterable[Tuple[str,Callable]]] = None, 
-        block_id: Optional[int] = None, 
+        returns: Optional[Iterable[Tuple[str,Callable]]] = None,
+        block_id: Optional[int] = None,
         gas_limit: Optional[int] = None,
-        state_override_code: Optional[str] = None, 
-        # This needs to be None in order to use process_pool_executor
-        _w3: Web3 = None
+        state_override_code: Optional[str] = None,
+        w3: Optional[Web3] = None,
     ) -> None:
         self.target = to_checksum_address(target)
         self.returns = returns
         self.block_id = block_id
         self.gas_limit = gas_limit
         self.state_override_code = state_override_code
-        self.w3 = _w3
+        self.w3 = w3
 
         self.args: Optional[List[Any]]
         if isinstance(function, list):
@@ -46,12 +42,13 @@ class Call:
         self.signature = Signature(self.function)
     
     def __repr__(self) -> str:
-        return f'<Call {self.function} on {self.target[:8]}>'
+        return f'Call {self.target}.{self.function}'
 
     @property
     def data(self) -> bytes:
         return self.signature.encode_data(self.args)
 
+    @staticmethod
     def decode_output(
         output: Decodable,
         signature: Signature,
@@ -85,8 +82,9 @@ class Call:
             return decoded if len(decoded) > 1 else decoded[0]
 
     @eth_retry.auto_retry
-    def __call__(self, args: Optional[Any] = None, _w3: Optional[Web3] = None) -> Any:
-        _w3 = self.w3 or _w3 or w3
+    def __call__(self, args: Optional[Any] = None) -> Any:
+        if self.w3 is None:
+            raise RuntimeError
         args = prep_args(
             self.target,
             self.signature,
@@ -96,38 +94,18 @@ class Call:
             self.state_override_code,
         )
         return Call.decode_output(
-            _w3.eth.call(*args),
+            self.w3.eth.call(*args),
             self.signature,
             self.returns,
         )
 
-    @eth_retry.auto_retry
-    async def coroutine(self, args: Optional[Any] = None, _w3: Optional[Web3] = None) -> Any:
-        _w3 = self.w3 or _w3 or w3
 
-        if self.state_override_code and not state_override_supported(_w3):
-            raise StateOverrideNotSupported(f'State override is not supported on {Network(chain_id(_w3)).__repr__()[1:-1]}.')
-        
-        args = await run_in_subprocess(
-            prep_args,
-            self.target,
-            self.signature,
-            args or self.args,
-            self.block_id,
-            self.gas_limit,
-            self.state_override_code,
-        )
-
-        output = await get_async_w3(_w3).eth.call(*args)
-
-        return await run_in_subprocess(Call.decode_output, output, self.signature, self.returns)
-    
 def prep_args(
-    target: str, 
-    signature: Signature, 
-    args: Optional[Any], 
-    block_id: Optional[int], 
-    gas_limit: int, 
+    target: str,
+    signature: Signature,
+    args: Optional[Any],
+    block_id: Optional[int],
+    gas_limit: int,
     state_override_code: str,
 ) -> List:
 
