@@ -23,14 +23,14 @@ class Call:
         block_id: Optional[int] = None,
         gas_limit: Optional[int] = None,
         state_override_code: Optional[str] = None,
-        w3: Optional[Web3] = None,
+        _w3: Optional[Web3] = None,
     ) -> None:
         self.target = to_checksum_address(target)
         self.returns = returns
         self.block_id = block_id
         self.gas_limit = gas_limit
         self.state_override_code = state_override_code
-        self.w3 = w3
+        self.w3 = _w3
 
         self.args: Optional[List[Any]]
         if isinstance(function, list):

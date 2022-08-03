@@ -34,20 +34,20 @@ def unpack_batch_results(batch_results: List[List[CallResponse]]) -> List[CallRe
 class Multicall:
     def __init__(
         self,
-        w3: Web3,
         calls: List[Call],
         batch_size: int = 500,
         block_id: Optional[int] = None,
         retries: int = 3,
         require_success: bool = True,
-        workers: int = min(24, multiprocessing.cpu_count())
+        _w3: Optional[Web3] = None,
+        workers: int = min(24, multiprocessing.cpu_count()),
     ) -> None:
         self.calls = calls
         self.batch_size = batch_size
         self.block_id = block_id
         self.retries = retries
         self.require_success = require_success
-        self.w3 = w3
+        self.w3 = _w3
         self.chainid = chain_id(self.w3)
         if require_success is True:
             multicall_map = MULTICALL_ADDRESSES if self.chainid in MULTICALL_ADDRESSES else MULTICALL2_ADDRESSES
@@ -62,6 +62,8 @@ class Multicall:
         return f'Multicall {", ".join(set(map(lambda call: call.function, self.calls)))}, {len(self.calls)} calls'
 
     def __call__(self) -> Dict[str,Any]:
+        if self.w3 is None:
+            raise RuntimeError
         if len(self.calls) == 0:
             return {}
         start = time()
@@ -109,7 +111,7 @@ class Multicall:
                 returns=None,
                 block_id=self.block_id,
                 state_override_code=MULTICALL2_BYTECODE,
-                w3=self.w3,
+                _w3=self.w3,
             )
         
         # If state override is not supported, we simply skip it.
@@ -119,5 +121,5 @@ class Multicall:
             self.multicall_sig,
             returns=None,
             block_id=self.block_id,
-            w3=self.w3,
+            _w3=self.w3,
         )

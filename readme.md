@@ -57,24 +57,24 @@ Call(MKR_TOKEN, 'totalSupply()(uint256)', [['supply', from_wei]], w3=web3.web)()
 
 use `encode_data(args)` with input args to get the calldata. use `decode_data(output)` with the output to decode the result.
 
-### `Call(target, function, returns=None, gas_limit=None, w3=None)`
+### `Call(target, function, returns=None, gas_limit=None, _w3=None)`
 
 - `target` is the `to` address which is supplied to `eth_call`.
 - `function` can be either seth-style signature of `method(input,types)(output,types)` or a list of `[signature, *args]`.
 - `returns` is a list of `[name, handler]` for return values. if `returns` argument is omitted, you get a tuple, otherwise you get a dict. to skip processing of a value, pass `None` as a handler.
-- `w3` is a `Web3` instance to be used for the `eth_call`. If `None`, `Call(...)()` will raise a `RuntimeError`.
+- `_w3` is a `Web3` instance to be used for the `eth_call`. If `None`, `Call(...)()` will raise a `RuntimeError`.
 
 use `Call(...)()` with predefined args or `Call(...)(args)` to reuse a prepared call with different args.
 
 use `decode_output(output)` with to decode the output and process it with `returns` handlers.
 
-### `Multicall(w3, calls, batch_size=500, retries=3, require_success=True, workers=...)`
+### `Multicall(calls, batch_size=500, retries=3, require_success=True, _w3=None, workers=...)`
 
-- `w3` is a `Web3` instance to be used for the multicalls.
 - `calls` is a list of `Call`s with prepared values.
 - `batch_size` is the size of batches to give to the multicall contract.
 - `retries` is the number of times to attempt a failed batch.
 - `require_success` determines whether or not all calls must be successful.
+- `_w3` is a `Web3` instance to be used for the multicall. If `None`, `Multicall(...)()` will raise a `RuntimeError`.
 - `workers` is the number of threads used by the multicall (and hence the number of concurrent connections).
 
 
