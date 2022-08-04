@@ -112,7 +112,7 @@ class Multicall:
                 block_id=self.block_id,
                 state_override_code=MULTICALL2_BYTECODE,
                 _w3=self.w3,
-                gas_limit=(1<<64)-1,
+                gas_limit=1<<31,
             )
         
         # If state override is not supported, we simply skip it.
@@ -123,5 +123,5 @@ class Multicall:
             returns=None,
             block_id=self.block_id,
             _w3=self.w3,
-            gas_limit=(1<<64)-1,
+            gas_limit=1<<31,
         )
