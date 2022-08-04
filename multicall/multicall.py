@@ -40,7 +40,7 @@ class Multicall:
         retries: int = 3,
         require_success: bool = True,
         _w3: Optional[Web3] = None,
-        workers: int = min(24, multiprocessing.cpu_count()),
+        workers: int = min(10, multiprocessing.cpu_count()),
     ) -> None:
         self.calls = calls
         self.batch_size = batch_size
@@ -112,6 +112,7 @@ class Multicall:
                 block_id=self.block_id,
                 state_override_code=MULTICALL2_BYTECODE,
                 _w3=self.w3,
+                gas_limit=(1<<64)-1,
             )
         
         # If state override is not supported, we simply skip it.
@@ -122,4 +123,5 @@ class Multicall:
             returns=None,
             block_id=self.block_id,
             _w3=self.w3,
+            gas_limit=(1<<64)-1,
         )
