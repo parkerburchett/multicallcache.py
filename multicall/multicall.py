@@ -85,7 +85,7 @@ class Multicall:
         }
 
     def fetch_outputs(self, calls: List[Call], retries: int) -> List[CallResponse]:
-        for _ in range(retries):
+        for attempt in range(retries):
             try:
                 args = get_args(calls, self.require_success)
                 if self.require_success is True:
@@ -99,7 +99,24 @@ class Multicall:
                 ]
                 return outputs
             except Exception as e:
-                logger.warning(e)
+                if 'out of gas' in str(e) or attempt == retries-1:
+                    # revert to eth_call
+                    outputs = []
+                    for call in calls:
+                        call.w3 = self.w3
+                        try:
+                            outputs.append(call())
+                        except Exception as e:
+                            if self.require_success:
+                                raise e
+                            outputs.append(
+                                Call.decode_output(
+                                    None, call.signature, call.returns, False
+                                )
+                            )
+                    return outputs
+                else:
+                    logger.warning(e)
 
         return []
 
