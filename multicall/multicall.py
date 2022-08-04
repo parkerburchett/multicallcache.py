@@ -35,7 +35,7 @@ class Multicall:
     def __init__(
         self,
         calls: List[Call],
-        batch_size: int = 500,
+        batch_size: int = 100,
         block_id: Optional[int] = None,
         retries: int = 3,
         require_success: bool = True,
