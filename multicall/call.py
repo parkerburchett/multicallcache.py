@@ -12,14 +12,17 @@ from multicall.loggers import setup_logger
 
 logger = setup_logger(__name__)
 
-AnyAddress = Union[str,Address,ChecksumAddress,HexAddress]
+AnyAddress = Union[str, Address, ChecksumAddress, HexAddress]
+
 
 class Call:
     def __init__(
         self,
         target: AnyAddress,
-        function: Union[str,Iterable[Union[str,Any]]], # 'funcName(dtype)(dtype)' or ['funcName(dtype)(dtype)', input0, input1, ...]
-        returns: Optional[Iterable[Tuple[str,Callable]]] = None,
+        function: Union[
+            str, Iterable[Union[str, Any]]
+        ],  # 'funcName(dtype)(dtype)' or ['funcName(dtype)(dtype)', input0, input1, ...]
+        returns: Optional[Iterable[Tuple[str, Callable]]] = None,
         block_id: Optional[int] = None,
         gas_limit: Optional[int] = None,
         state_override_code: Optional[str] = None,
@@ -40,9 +43,9 @@ class Call:
             self.args = None
 
         self.signature = Signature(self.function)
-    
+
     def __repr__(self) -> str:
-        return f'Call {self.target}.{self.function}'
+        return f"Call {self.target}.{self.function}"
 
     @property
     def data(self) -> bytes:
@@ -52,10 +55,10 @@ class Call:
     def decode_output(
         output: Decodable,
         signature: Signature,
-        returns: Optional[Iterable[Tuple[str,Callable]]] = None,
-        success: Optional[bool] = None
+        returns: Optional[Iterable[Tuple[str, Callable]]] = None,
+        success: Optional[bool] = None,
     ) -> Any:
-    
+
         if success is None:
             apply_handler = lambda handler, value: handler(value)
         else:
@@ -65,18 +68,17 @@ class Call:
             try:
                 decoded = signature.decode_data(output)
             except:
-                success, decoded = False, [None] * (1 if not returns else len(returns)) # type: ignore
+                success, decoded = False, [None] * (1 if not returns else len(returns))  # type: ignore
         else:
-            decoded = [None] * (1 if not returns else len(returns)) # type: ignore
+            decoded = [None] * (1 if not returns else len(returns))  # type: ignore
 
-        logger.debug(f'returns: {returns}')
-        logger.debug(f'decoded: {decoded}')
+        logger.debug(f"returns: {returns}")
+        logger.debug(f"decoded: {decoded}")
 
         if returns:
             return {
                 name: apply_handler(handler, value) if handler else value
-                for (name, handler), value
-                in zip(returns, decoded)
+                for (name, handler), value in zip(returns, decoded)
             }
         else:
             return decoded if len(decoded) > 1 else decoded[0]
@@ -111,12 +113,12 @@ def prep_args(
 
     calldata = signature.encode_data(args)
 
-    args = [{'to': target, 'data': calldata}, block_id]
+    args = [{"to": target, "data": calldata}, block_id]
 
     if gas_limit:
-        args[0]['gas'] = gas_limit
+        args[0]["gas"] = gas_limit
 
-    if state_override_code:            
-        args.append({target: {'code': state_override_code}})
+    if state_override_code:
+        args.append({target: {"code": state_override_code}})
 
     return args
