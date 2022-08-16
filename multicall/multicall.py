@@ -16,7 +16,7 @@ from multicall.constants import (
     MULTICALL_ADDRESSES,
 )
 from multicall.loggers import setup_logger
-from multicall.utils import chunks, chain_id, state_override_supported
+from multicall.utils import chunks, chain_id
 
 
 logger = setup_logger(__name__)
@@ -131,19 +131,6 @@ class Multicall:
 
     @property
     def aggregate(self) -> Call:
-        if state_override_supported(self.w3):
-            return Call(
-                self.multicall_address,
-                self.multicall_sig,
-                returns=None,
-                block_id=self.block_id,
-                state_override_code=MULTICALL2_BYTECODE,
-                _w3=self.w3,
-                gas_limit=self.gas_limit,
-            )
-
-        # If state override is not supported, we simply skip it.
-        # This will mean you're unable to access full historical data on chains without state override support.
         return Call(
             self.multicall_address,
             self.multicall_sig,

@@ -25,14 +25,12 @@ class Call:
         returns: Optional[Iterable[Tuple[str, Callable]]] = None,
         block_id: Optional[int] = None,
         gas_limit: Optional[int] = None,
-        state_override_code: Optional[str] = None,
         _w3: Optional[Web3] = None,
     ) -> None:
         self.target = to_checksum_address(target)
         self.returns = returns
         self.block_id = block_id
         self.gas_limit = gas_limit
-        self.state_override_code = state_override_code
         self.w3 = _w3
 
         self.args: Optional[List[Any]]
@@ -93,7 +91,6 @@ class Call:
             args or self.args,
             self.block_id,
             self.gas_limit,
-            self.state_override_code,
         )
         return Call.decode_output(
             self.w3.eth.call(*args),
@@ -108,7 +105,6 @@ def prep_args(
     args: Optional[Any],
     block_id: Optional[int],
     gas_limit: int,
-    state_override_code: str,
 ) -> List:
 
     calldata = signature.encode_data(args)
@@ -117,8 +113,5 @@ def prep_args(
 
     if gas_limit:
         args[0]["gas"] = gas_limit
-
-    if state_override_code:
-        args.append({target: {"code": state_override_code}})
 
     return args
