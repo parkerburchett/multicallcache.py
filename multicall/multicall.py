@@ -85,6 +85,7 @@ class Multicall:
                     ]
                     return outputs
                 except Exception as e:
+                    logger.warning(e)
                     if "out of gas" in str(e) or attempt == retries - 1:
                         # revert to eth_call
                         outputs = []
@@ -101,8 +102,6 @@ class Multicall:
                                     )
                                 )
                         return outputs
-                    else:
-                        logger.warning(e)
 
             return []
 
