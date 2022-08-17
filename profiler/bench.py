@@ -19,21 +19,13 @@ def read_conf() -> Mapping:
     return conf
 
 
-def parse_arg(x: str) -> Union[int, str]:
-    try:
-        x = int(x, 10)
-    except ValueError:
-        pass
-    return x
-
-
 def build_multicall(conf: Mapping, json_file: str) -> Multicall:
     with open(json_file, "r") as fl:
         data = json.load(fl)
         calls = [
             Call(
                 target,
-                [func, *map(parse_arg, args)] if len(args) else func,
+                [func, *args] if len(args) else func,
                 [[(target, func), None]],
             )
             for target, func, *args in data["calls"]
