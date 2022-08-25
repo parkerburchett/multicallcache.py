@@ -85,7 +85,7 @@ class Call:
     def __call__(self, args: Optional[Any] = None) -> Any:
         if self.w3 is None:
             raise RuntimeError
-        args = prep_args(
+        args = Call.prep_args(
             self.target,
             self.signature,
             args or self.args,
@@ -98,20 +98,20 @@ class Call:
             self.returns,
         )
 
+    @staticmethod
+    def prep_args(
+        target: str,
+        signature: Signature,
+        args: Optional[Any],
+        block_id: Optional[int],
+        gas_limit: int,
+    ) -> List:
 
-def prep_args(
-    target: str,
-    signature: Signature,
-    args: Optional[Any],
-    block_id: Optional[int],
-    gas_limit: int,
-) -> List:
+        calldata = signature.encode_data(args)
 
-    calldata = signature.encode_data(args)
+        args = [{"to": target, "data": calldata}, block_id]
 
-    args = [{"to": target, "data": calldata}, block_id]
+        if gas_limit:
+            args[0]["gas"] = gas_limit
 
-    if gas_limit:
-        args[0]["gas"] = gas_limit
-
-    return args
+        return args
