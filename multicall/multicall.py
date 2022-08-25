@@ -130,17 +130,19 @@ class Multicall:
             _, _, outputs = Call.decode_output(
                 result, self.aggregate.signature, self.aggregate.returns
             )
-            outputs = [
-                Call.decode_output(output, call.signature, call.returns, success)
-                for call, (success, output) in zip(calls_batch, outputs)
-            ]
+
+        outputs = [
+            Call.decode_output(output, call.signature, call.returns, success)
+            for call, (success, output) in zip(calls_batch, outputs)
+        ]
 
         return {name: result for output in outputs for name, result in output.items()}
 
-    async def rpc_eth_call(self, session, args, retries: int = 3):
+    async def rpc_eth_call(self, session, args):
 
         async with session.post(
             self.node_uri,
+            headers={"Content-Type": "application/json"},
             data=json.dumps(
                 {
                     "params": args,
@@ -173,7 +175,6 @@ class Multicall:
             )
 
     def fetch_outputs(self) -> List[CallResponse]:
-        batch_size = self.batch_size
         calls = self.calls
 
         outputs = {}
@@ -182,12 +183,9 @@ class Multicall:
         initialize_multiprocessing()
 
         with multiprocessing.Pool(processes=self.max_workers) as p:
-            for attempt in range(self.retries):
-
-                if len(calls) <= 20 or batch_size <= 1:
-                    # no point in using multicall with small batch sizes or small number of calls.
-                    # TODO: Maybe these should be user-defined thresholds?
-                    break
+            for batch_size in itertools.chain(
+                map(lambda i: self.batch_size // (1 << i), range(self.retries)), [1]
+            ):
 
                 batches = [
                     calls[batch : batch + batch_size]
@@ -221,16 +219,13 @@ class Multicall:
                         ]
                     )
                 )
-                # halve batch size
-                batch_size = batch_size // 2
 
-                batches, results = zip(
-                    *[
-                        (batch, result)
-                        for batch, result in zip(batches, results)
-                        if not isinstance(result, EthRPCError)
-                    ]
-                )
+                successes = [
+                    (batch, result)
+                    for batch, result in zip(batches, results)
+                    if not isinstance(result, EthRPCError)
+                ]
+                batches, results = zip(*successes) if len(successes) else ([], [])
 
                 if len(batches) > self.parallel_threshold:
                     outputs.update(
@@ -249,72 +244,6 @@ class Multicall:
 
                 if len(calls) == 0:
                     return outputs
-
-            # resort to eth_call
-            logger.warning(f"Resorting to eth_call for {len(calls)} calls.")
-
-            if len(calls) > self.parallel_threshold:
-                encoded_args = list(
-                    p.imap(
-                        lambda call: Call.prep_args(
-                            call.target,
-                            call.signature,
-                            call.args,
-                            self.block_id,
-                            self.gas_limit,
-                        ),
-                        calls,
-                        chunksize=-(-len(calls) // self.max_workers),
-                    )
-                )
-            else:
-                encoded_args = list(
-                    map(
-                        lambda call: Call.prep_args(
-                            call.target,
-                            call.signature,
-                            call.args,
-                            self.block_id,
-                            self.gas_limit,
-                        ),
-                        calls,
-                    )
-                )
-
-            results = asyncio.run(self.rpc_aggregator(encoded_args))
-
-            if self.require_success and any(
-                map(lambda x: x == EthRPCError.EXECUTION_REVERTED, results)
-            ):
-                raise RuntimeError("Multicall with require_success=True failed.")
-
-            if len(calls) > self.parallel_threshold:
-                outputs.update(
-                    ChainMap(
-                        *p.starmap(
-                            Call.decode_output,
-                            [
-                                results,
-                                list(map(lambda x: x.signature, calls)),
-                                list(map(lambda x: x.returns, calls)),
-                            ],
-                            chunksize=-(-len(calls) // self.max_workers),
-                        )
-                    )
-                )
-            else:
-                outputs.update(
-                    ChainMap(
-                        *map(
-                            Call.decode_output,
-                            [
-                                results,
-                                list(map(lambda x: x.signature, calls)),
-                                list(map(lambda x: x.returns, calls)),
-                            ],
-                        )
-                    )
-                )
 
         return outputs
 

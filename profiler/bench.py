@@ -6,6 +6,8 @@ import time
 from typing import Mapping, Union
 
 import memray
+from web3 import Web3
+from web3.providers import HTTPProvider
 
 from multicall import Call, Multicall
 
@@ -36,10 +38,10 @@ def build_multicall(conf: Mapping, json_file: str) -> Multicall:
         workers = data["workers"]
 
         return Multicall(
-            conf["networks"][chain_id],
             calls,
+            max_conns=200,
             require_success=require_success,
-            workers=workers,
+            _w3=Web3(HTTPProvider(conf["networks"][chain_id])),
         )
 
 

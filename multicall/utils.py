@@ -1,3 +1,4 @@
+from functools import reduce
 from typing import Any, Dict, Iterable, List
 
 import eth_retry
