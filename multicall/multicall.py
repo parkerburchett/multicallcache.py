@@ -63,7 +63,7 @@ class Multicall:
         require_success: bool = True,
         _w3: Optional[Web3] = None,
         max_conns: int = 20,
-        max_workers: int = multiprocessing.cpu_count(),
+        max_workers: int = min(12, multiprocessing.cpu_count() - 1),
         # when the number of function calls to execute is above this threshold, multiprocessing is used
         parallel_threshold: int = 1,
         # timeout in seconds for a multicall batch
@@ -138,7 +138,7 @@ class Multicall:
 
         return {name: result for output in outputs for name, result in output.items()}
 
-    async def rpc_eth_call(self, session, args):
+    async def rpc_eth_call(self, session: aiohttp.ClientSession, args):
 
         async with session.post(
             self.node_uri,
@@ -164,7 +164,9 @@ class Multicall:
                     return EthRPCError.UNKNOWN
             return bytes.fromhex(data["result"][2:])
 
-    async def rpc_aggregator(self, args_list: List[List]):
+    async def rpc_aggregator(
+        self, args_list: List[List]
+    ) -> List[Union[EthRPCError, bytes]]:
 
         async with aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(limit=self.max_conns),
