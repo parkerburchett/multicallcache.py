@@ -38,7 +38,7 @@ def unpack_batch_results(batch_results: List[List[CallResponse]]) -> List[CallRe
     return [result for batch in batch_results for result in batch]
 
 
-def initialize_multiprocessing():
+def _initialize_multiprocessing():
     if multiprocessing.get_start_method(allow_none=True) is None:
         start_methods = multiprocessing.get_all_start_methods()
         if "forkserver" in start_methods:
@@ -101,8 +101,14 @@ class Multicall:
     def __call__(self) -> Dict[str, Any]:
         if len(self.calls) == 0:
             return {}
+
         start = time()
-        response = self.fetch_outputs()
+        response: Dict[str, Any]
+        if -(-len(self.calls) // self.batch_size) > self.parallel_threshold:
+            with multiprocessing.Pool(processes=self.max_workers) as p:
+                response = self.fetch_outputs(p)
+        else:
+            response = self.fetch_outputs()
         logger.debug(f"Multicall took {time() - start}s")
         return response
 
@@ -176,76 +182,70 @@ class Multicall:
                 *[self.rpc_eth_call(session, args) for args in args_list]
             )
 
-    def fetch_outputs(self) -> List[CallResponse]:
+    def fetch_outputs(self, p: Optional[multiprocessing.Pool] = None) -> Dict[str, Any]:
         calls = self.calls
 
         outputs = {}
 
-        # try to use forkserver/spawn
-        initialize_multiprocessing()
+        for batch_size in itertools.chain(
+            map(lambda i: self.batch_size // (1 << i), range(self.retries)), [1]
+        ):
 
-        with multiprocessing.Pool(processes=self.max_workers) as p:
-            for batch_size in itertools.chain(
-                map(lambda i: self.batch_size // (1 << i), range(self.retries)), [1]
-            ):
+            if len(calls) == 0:
+                break
 
-                batches = [
-                    calls[batch : batch + batch_size]
-                    for batch in range(-(-len(calls) // batch_size))
-                ]
+            batches = [
+                calls[batch : batch + batch_size]
+                for batch in range(-(-len(calls) // batch_size))
+            ]
 
-                encoded_args: List
-                if len(batches) > self.parallel_threshold:
-                    encoded_args = list(
-                        p.imap(
-                            self.encode_args,
-                            batches,
+            encoded_args: List
+            if p and len(batches) > self.parallel_threshold:
+                encoded_args = list(
+                    p.imap(
+                        self.encode_args,
+                        batches,
+                        chunksize=-(-len(batches) // self.max_workers),
+                    )
+                )
+            else:
+                encoded_args = list(map(self.encode_args, batches))
+
+            results = asyncio.run(self.rpc_aggregator(encoded_args))
+
+            if self.require_success and EthRPCError.EXECUTION_REVERTED in results:
+                raise RuntimeError("Multicall with require_success=True failed.")
+
+            # find remaining calls
+            calls = list(
+                itertools.chain(
+                    *[
+                        batches[i]
+                        for i, x in enumerate(results)
+                        if x == EthRPCError.OUT_OF_GAS
+                    ]
+                )
+            )
+
+            successes = [
+                (batch, result)
+                for batch, result in zip(batches, results)
+                if not isinstance(result, EthRPCError)
+            ]
+            batches, results = zip(*successes) if len(successes) else ([], [])
+
+            if p and len(batches) > self.parallel_threshold:
+                outputs.update(
+                    ChainMap(
+                        *p.starmap(
+                            self.decode_outputs,
+                            zip(batches, results),
                             chunksize=-(-len(batches) // self.max_workers),
                         )
                     )
-                else:
-                    encoded_args = list(map(self.encode_args, batches))
-
-                results = asyncio.run(self.rpc_aggregator(encoded_args))
-
-                if self.require_success and EthRPCError.EXECUTION_REVERTED in results:
-                    raise RuntimeError("Multicall with require_success=True failed.")
-
-                # find remaining calls
-                calls = list(
-                    itertools.chain(
-                        *[
-                            batches[i]
-                            for i, x in enumerate(results)
-                            if x == EthRPCError.OUT_OF_GAS
-                        ]
-                    )
                 )
-
-                successes = [
-                    (batch, result)
-                    for batch, result in zip(batches, results)
-                    if not isinstance(result, EthRPCError)
-                ]
-                batches, results = zip(*successes) if len(successes) else ([], [])
-
-                if len(batches) > self.parallel_threshold:
-                    outputs.update(
-                        ChainMap(
-                            *p.starmap(
-                                self.decode_outputs,
-                                zip(batches, results),
-                                chunksize=-(-len(batches) // self.max_workers),
-                            )
-                        )
-                    )
-                else:
-                    outputs.update(
-                        ChainMap(*map(self.decode_outputs, batches, results))
-                    )
-
-                if len(calls) == 0:
-                    return outputs
+            else:
+                outputs.update(ChainMap(*map(self.decode_outputs, batches, results)))
 
         return outputs
 
