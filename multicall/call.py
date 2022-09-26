@@ -58,9 +58,14 @@ class Call:
     ) -> Any:
 
         if success is None:
-            apply_handler = lambda handler, value: handler(value)
+
+            def apply_handler(handler, value):
+                return handler(value)
+
         else:
-            apply_handler = lambda handler, value: handler(success, value)
+
+            def apply_handler(handler, value):
+                return handler(success, value)
 
         if success is None or success:
             try:

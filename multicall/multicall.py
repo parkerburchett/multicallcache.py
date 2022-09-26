@@ -196,7 +196,7 @@ class Multicall:
 
             batches = [
                 calls[batch : batch + batch_size]
-                for batch in range(-(-len(calls) // batch_size))
+                for batch in range(0, len(calls), batch_size)
             ]
 
             encoded_args: List
