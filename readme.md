@@ -10,11 +10,22 @@ pip install multicall
 
 ## Differences from `banteg/multicall`
 
-- Uses `ThreadPoolExecutor` instead of `asyncio`+`ProcessPoolExecutor`.
 - Some interface changes; see below.
 - Removed default `Web3` instance.
 - Batch sizes and number of workers specified by user; removed `NotSoBrightBatcher`.
-- A maximum of one connection per worker.
+- Multicalls are much more configurable.
+- A fallback to individual `eth_call`s if multicall keeps failing with out of gas errors.
+  This provides handling for calls that `throw()`.
+
+- The package still uses asyncio+multiprocessing, but the workflow has changed:
+  
+  1. Calls are split into batches of `batch_size`.
+  2. Encoding is done in a (per `Multicall` object) process pool (depending on the value of `parallel_threshold`).
+  3. The web3 call is done in an asyncio loop in the main process.
+  4. Decoding is done in a process pool (depending on the value of `parallel_threshold`).
+  5. The calls in failed batches are rebatched and rerun for `retries` times.
+  
+  By default the multiprocessing `forkserver` [start method](https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods) is used to avoid high memory consumption.
 
 
 ## example
@@ -32,21 +43,21 @@ def from_wei(value):
     return value / 1e18
 
 multi = Multicall(
-    web3.web,
     [
         Call(MKR_TOKEN, ['balanceOf(address)(uint256)', MKR_WHALE], [['whale', from_wei]]),
         Call(MKR_TOKEN, ['balanceOf(address)(uint256)', MKR_FISH], [['fish', from_wei]]),
         Call(MKR_TOKEN, 'totalSupply()(uint256)', [['supply', from_wei]]),
-    ]
+    ],
+    _w3=web3.web
 )
 
 multi()  # {'whale': 566437.0921992733, 'fish': 7005.0, 'supply': 1000003.1220798912}
 
 # seth-style calls
-Call(MKR_TOKEN, ['balanceOf(address)(uint256)', MKR_WHALE], w3=web3.web)()
-Call(MKR_TOKEN, 'balanceOf(address)(uint256)', w3=web3.web)(MKR_WHALE)
+Call(MKR_TOKEN, ['balanceOf(address)(uint256)', MKR_WHALE], _w3=web3.web)()
+Call(MKR_TOKEN, 'balanceOf(address)(uint256)', _w3=web3.web)(MKR_WHALE)
 # return values processing
-Call(MKR_TOKEN, 'totalSupply()(uint256)', [['supply', from_wei]], w3=web3.web)()
+Call(MKR_TOKEN, 'totalSupply()(uint256)', [['supply', from_wei]], _w3=web3.web)()
 ```
 
 ## api
@@ -57,7 +68,7 @@ Call(MKR_TOKEN, 'totalSupply()(uint256)', [['supply', from_wei]], w3=web3.web)()
 
 use `encode_data(args)` with input args to get the calldata. use `decode_data(output)` with the output to decode the result.
 
-### `Call(target, function, returns=None, gas_limit=None, _w3=None)`
+### `Call(target, function, returns=None, block_id=None, gas_limit=None, _w3=None)`
 
 - `target` is the `to` address which is supplied to `eth_call`.
 - `function` can be either seth-style signature of `method(input,types)(output,types)` or a list of `[signature, *args]`.
@@ -68,14 +79,35 @@ use `Call(...)()` with predefined args or `Call(...)(args)` to reuse a prepared 
 
 use `decode_output(output)` with to decode the output and process it with `returns` handlers.
 
-### `Multicall(calls, batch_size=500, retries=3, require_success=True, _w3=None, workers=...)`
+### `Multicall`
+
+```
+Multicall(
+    calls: List[Call],
+    batch_size: Optional[int] = None,
+    block_id: Optional[int] = None,
+    gas_limit: int = 1 << 31,
+    retries: int = 3,
+    require_success: bool = True,
+    _w3: Optional[Web3] = None,
+    max_conns: int = 20,
+    max_workers: int = min(12, multiprocessing.cpu_count() - 1),
+    parallel_threshold: int = 1,
+    batch_timeout: int = 300,
+)
+```
 
 - `calls` is a list of `Call`s with prepared values.
 - `batch_size` is the size of batches to give to the multicall contract.
-- `retries` is the number of times to attempt a failed batch.
+- `block_id` is the block number at which the multicall is executed.
+- `gas_limit` is the amount of gas (in wei) allocated to the multicall.
+- `retries` is the number of attempts to rerun failed calls.
 - `require_success` determines whether or not all calls must be successful.
-- `_w3` is a `Web3` instance to be used for the multicall. If `None`, `Multicall(...)()` will raise a `RuntimeError`.
-- `workers` is the number of threads used by the multicall (and hence the number of concurrent connections).
+- `_w3` is a `Web3` instance whose uri is to be used for the multicall. If `None`, `Multicall(...)()` will raise a `RuntimeError`.
+- `max_conns` is the maximum number of connections used for the multicall.
+- `max_workers` is the number of processes used by the multicall encoding/decoding.
+- `parallel_threshold` is the number of calls above which parallel encoding/decoding is activated.
+- `batch_timeout` is the timeout for a single multicall batch.
 
 
 use `Multicall(...)()` to get the result of a prepared multicall.
@@ -83,3 +115,26 @@ use `Multicall(...)()` to get the result of a prepared multicall.
 ### Environment Variables
 
 - MULTICALL_DEBUG: if set, sets logging level for all library loggers to logging.DEBUG
+
+## Tests
+
+Tests require a config file at `tests/conf.json`.
+
+The config file must have the following format:
+
+```json
+{
+    "networks": {
+        "1": http://localhost,
+        ... 
+    }
+}
+```
+
+To test the package run the following command:
+
+```
+python -m pytest
+```
+
+Some of the test multicalls are JSON serialized and GZIP-compressed (under the directory `/tests/data`), so your mileage may vary dependening on OS.
