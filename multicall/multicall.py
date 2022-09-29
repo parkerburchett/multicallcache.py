@@ -58,7 +58,7 @@ class Multicall:
         calls: List[Call],
         batch_size: Optional[int] = None,
         block_id: Optional[int] = None,
-        gas_limit: Optional[int] = 1 << 31,
+        gas_limit: int = 1 << 31,
         retries: int = 3,
         require_success: bool = True,
         _w3: Optional[Web3] = None,
