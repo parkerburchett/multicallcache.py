@@ -131,7 +131,7 @@ The config file must have the following format:
 }
 ```
 
-To test the package run the following command:
+To test the package, make sure `pytest` is installed in your `venv`, then run the following command:
 
 ```
 python -m pytest
