@@ -118,6 +118,14 @@ use `Multicall(...)()` to get the result of a prepared multicall.
 
 ## Tests
 
+```
+poetry install
+```
+```
+poetry run pytest
+```
+
+
 Tests require a config file at `tests/conf.json`.
 
 The config file must have the following format:
@@ -134,7 +142,7 @@ The config file must have the following format:
 To test the package, make sure `pytest` is installed in your `venv`, then run the following command:
 
 ```
-python -m pytest
+poetry run pytest
 ```
 
 Some of the test multicalls are JSON serialized and GZIP-compressed (under the directory `/tests/data`), so your mileage may vary dependening on OS.
