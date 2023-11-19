@@ -134,10 +134,11 @@ The config file must have the following format:
 {
     "networks": {
         "1": http://localhost,
-        ... 
+        
     }
 }
 ```
+testing multicall multicall2.json.gz requires a key http endpoint for chain id "250" so we can skip it
 
 To test the package, make sure `pytest` is installed in your `venv`, then run the following command:
 
