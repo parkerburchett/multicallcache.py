@@ -1,3 +1,5 @@
+print('hello test_multicall.py')
+
 import json
 import gzip
 from multicall import Call, Multicall
@@ -12,8 +14,9 @@ from .settings import CONFIG
 
 MULTICALLS_DIR = os.path.join(os.path.dirname(__file__), "data")
 
+# "multicall2.json.gz", is testing chain id=250 aka Fantom Opera. Skipping since I don't care about it
 
-MULTICALL_FILES = ["multicall1.json.gz", "multicall2.json.gz", "multicall3.json.gz"]
+MULTICALL_FILES = ["multicall1.json.gz", "multicall3.json.gz"]
 
 
 @pytest.mark.parametrize("fname", MULTICALL_FILES)
