@@ -113,8 +113,7 @@ class Call:
     ) -> List:
 
         calldata = signature.encode_data(args)
-
-        args = [{"to": target, "data": calldata}, block_id]
+        args = [{"to": target, "data": calldata}, hex(block_id)]
 
         if gas_limit:
             args[0]["gas"] = gas_limit
