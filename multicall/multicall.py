@@ -68,7 +68,6 @@ class Multicall:
         parallel_threshold: int = 1,
         # timeout in seconds for a multicall batch
         batch_timeout: int = 300,
-        w3 = None
     ) -> None:
         self.calls = calls
         self.batch_size = (
@@ -95,7 +94,6 @@ class Multicall:
             self.multicall_sig = "tryBlockAndAggregate(bool,(address,bytes)[])(uint256,uint256,(bool,bytes)[])"
         self.multicall_address = multicall_map[self.chainid]
         self.batch_timeout = batch_timeout
-        self.w3 = w3
 
     def __repr__(self) -> str:
         return f'Multicall {", ".join(set(map(lambda call: call.function, self.calls)))}, {len(self.calls)} calls'
@@ -146,15 +144,14 @@ class Multicall:
 
         return {name: result for output in outputs for name, result in output.items()}
 
-    async def rpc_eth_call(self, session: aiohttp.ClientSession, args):
-        # key_word_args = args[0]
-        # block_id = hex(int(args[1]))
+    async def rpc_eth_call(self, session: aiohttp.ClientSession, args) -> bytes | EthRPCError:
+        """Make the multicall with many calls in it"""
         async with session.post(
             self.node_uri,
             headers={"Content-Type": "application/json"},
             data=json.dumps(
                 {
-                    "params": args,
+                    "params": [args[0], hex(int(args[1]))],
                     "method": "eth_call",
                     "id": 1,
                     "jsonrpc": "2.0",
@@ -171,7 +168,8 @@ class Multicall:
                     return EthRPCError.EXECUTION_REVERTED
                 else:
                     return EthRPCError.UNKNOWN
-            return bytes.fromhex(data["result"][2:])
+            result = bytes.fromhex(data["result"][2:])
+            return result
 
     async def rpc_aggregator(
         self, args_list: List[List]
@@ -188,12 +186,15 @@ class Multicall:
     def fetch_outputs(self, p: Optional[multiprocessing.Pool] = None) -> Dict[str, Any]:
         calls = self.calls
 
-        outputs = {}
 
+        # outputs = 
+
+
+        outputs = {}
+        # TODO: refactor this to be more readable
         for batch_size in itertools.chain(
             map(lambda i: self.batch_size // (1 << i), range(self.retries)), [1]
-        ):
-
+        ): 
             if len(calls) == 0:
                 break
 
@@ -213,9 +214,8 @@ class Multicall:
                 )
             else:
                 encoded_args = list(map(self.encode_args, batches))
-            # It is sending requests to multicall. But it is sending them as 3 seperate requests instead of bundling 
-            # them into one request
-            # seeing if max_workers chnages this
+
+
             results = asyncio.run(self.rpc_aggregator(encoded_args))
 
             if self.require_success and EthRPCError.EXECUTION_REVERTED in results:

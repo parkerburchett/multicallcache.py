@@ -18,7 +18,7 @@ MULTICALLS_DIR = os.path.join(os.path.dirname(__file__), "data")
 
 MULTICALL_FILES = ["multicall1.json.gz", "multicall3.json.gz"]
 
-
+#### TODO add tests for a historic block
 @pytest.mark.parametrize("fname", MULTICALL_FILES)
 def test_multicall(fname):
     with gzip.open(os.path.join(MULTICALLS_DIR, fname), "r") as fl:
@@ -51,3 +51,5 @@ def test_multicall(fname):
             assert (
                 results[name] == call["expected"]
             ), f"Result {results[name]} is not equal to expected {call['expected']}"
+
+

@@ -17,7 +17,7 @@ w3 = {
     for chain_id, network_uri in CONFIG["networks"].items()
 }
 
-
+#### TODO add tests for a historic block
 def test_call():
     call = Call(CHAI, "name()(string)", [["name", None]], _w3=w3[1])
     assert call() == {"name": "Chai"}

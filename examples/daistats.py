@@ -25,11 +25,10 @@ if __name__ == '__main__':
         block_id=16_000_000, 
         max_workers=1,
         require_success=False,
-        w3=w3
 
     )
 
-    data = multi()
+    data = multi.__call__()
     # getting block id not specififed errors
     pass
 
