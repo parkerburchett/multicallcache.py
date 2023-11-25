@@ -4,6 +4,10 @@ from multicall import Call, Multicall
 from dotenv import load_dotenv
 import os
 from web3 import Web3
+import pandas as pd
+import numpy as np
+from time import sleep
+
 
 load_dotenv()
 w3 = Web3(Web3.HTTPProvider(os.environ.get('ALCHEMY_URL')))
@@ -13,32 +17,61 @@ MKR_TOKEN = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' # USDC on mainnet
 MKR_WHALE = '0xdb33dfd3d61308c33c63209845dad3e6bfb2c674'
 MKR_FISH = '0x2dfcedcb401557354d0cf174876ab17bfd6f4efd'
 
-def from_usdc(success, value):
+
+def from_weth(success, value):
     if success:
-        return value / 1e6
+        return value / 1e18
+
+
+def build_balance_of_calls(n:int =10):
+    weth = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+    # df has 200k events
+    df = pd.read_csv('/home/parker/Documents/GitHub/multicallcache.py/many_weth_transfers.csv')
+    addresses = df['to'].unique()[:n]
+
+    calls = []
+    for i, address in enumerate(addresses):
+        c = Call(
+            weth,
+            ["balanceOf(address)(uint256)", address],
+            [(f'{i=}', from_weth)],
+        )
+        calls.append(c)
+    
+    return calls
+
+
 
 if __name__ == '__main__':
-    calls =[ Call(MKR_TOKEN, 'totalSupply()(uint256)', [[i, from_usdc]]) for i in range(50)]
-    # the block_id is breaking
-    multi = Multicall(calls,
-        _w3=w3, 
-        block_id=16_000_000, 
-        max_workers=1,
-        require_success=False,
+    calls = build_balance_of_calls(n=50)
 
-    )
 
-    data = multi.__call__()
-    # getting block id not specififed errors
+    # the only params I want to expose are 
+
+    # call_batch_size, default 50
+    # num concurrent requests default 1
+
+    # first break in to chunks of 50 calls
+
+
+    ### 1000 Balance Of calls with maybe data take 10-20s seconds each
+    # That succeeds
+    # 100 calls each take 1-2 seconds each
+    # 500 calls each take 5-15
+
+    for _ in range(10):
+        multi = Multicall(calls,
+            _w3=w3, 
+            block_id=16_000_000 + np.random.randint(1, 1_000_000), 
+            require_success=False,
+            max_conns=1,
+            max_workers=1,
+        )
+
+        data = multi.__call__()
+        sleep(3)
+
     pass
-
-
-
-
-
-
-
-
 
 
 
