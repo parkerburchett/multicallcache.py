@@ -5,6 +5,7 @@ import json
 import multiprocessing
 from time import time
 from typing import Any, Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass
 
 import aiohttp
 import numpy as np
@@ -19,9 +20,16 @@ from multicall.loggers import setup_logger
 from multicall.utils import chunks, chain_id
 
 
+@dataclass
+class CallResponseData:
+    call: Call
+    pythonic_output: Any # the data after it is passed throuhg the return type
+    bytes_output: bytes # redundent
+    function_success: Optional[bool]    
+
 logger = setup_logger(__name__)
 
-CallResponse = Tuple[Union[None, bool], bytes]
+CallResponse = Tuple[Union[None, bool], bytes] # TODO remove this
 
 
 def get_args(
@@ -54,7 +62,8 @@ def _initialize_multiprocessing():
         )
 
 # gas_limit
-#  NOTE: this parameter has a cap of 550 million gas per request. Reach out to us at support@alchemy.com if you want to increase this limit!
+#  NOTE: this parameter has a cap of 550 million gas per request.
+# Reach out to us at support@alchemy.com if you want to increase this limit!
 # https://docs.alchemy.com/reference/eth-call
 
 class MulticallV2:
@@ -62,11 +71,11 @@ class MulticallV2:
     def __init__(
         self,
         calls: List[Call],
-        block_id: int, # maybe optional?
-        w3: Web3, # might not be required to be this type
+        block_id: int,
+        w3: Web3,
         db_path:str = 'cache_db.sqlite', # make follow best practices
         require_success: bool = False, # default to handlers are f(success, data) -> some operation(data)
-        max_concurrent_requests: int= 1,
+        max_concurrent_requests: int = 1,
         n_calls_per_batch:int = 50,
         batch_timeout: int = 300,
         ):
@@ -81,9 +90,10 @@ class MulticallV2:
 
             # Consider making these constants in the file
             self.chainid = chain_id(w3)
-            self.node_uri = w3.provider.endpoint_uri # string?
+            self.node_uri = w3.provider.endpoint_uri # string? # what the heck is this?
+            self.gas_limit = 50_000_000
 
-            # kind of hazy about this. I'm only using this for ETH
+            # kind of hazy about this. I'm only using this for Ethereum
             if require_success is True:
                 multicall_map = (
                     MULTICALL_ADDRESSES
@@ -98,88 +108,31 @@ class MulticallV2:
 
             self.multicall_address = multicall_map[self.chainid]
 
-
     def __repr__(self) -> str:
         return f'Multicall {", ".join(set(map(lambda call: call.function, self.calls)))}, {len(self.calls)} calls'   
-
-    
-
-
-
-class Multicall:
-    def __init__(
-        self,
-        calls: List[Call],
-        batch_size: Optional[int] = None,
-        block_id: Optional[int] = None,
-        gas_limit: int = 550_000_000, # they should not have control over the gas limit, move to constanrts #2_147_483_648, # 1 << 31, # not sure how much this matters, # see the latency of this 1 call vs 100_000 total supply
-        retries: int = 3, # odd default, not sure why they picked this. 
-        require_success: bool = True,
-        _w3: Optional[Web3] = None,
-        max_conns: int = 20,
-        max_workers: int = min(12, multiprocessing.cpu_count() - 1),
-        # when the number of function calls to execute is above this threshold, multiprocessing is used
-        parallel_threshold: int = 1,
-        # timeout in seconds for a multicall batch
-        batch_timeout: int = 300,
-    ) -> None:
-        self.calls = calls
-        self.batch_size = ( ### update this as well since many of the calls are redundent
-            batch_size if batch_size is not None else -(-len(calls) // max_conns) # not sure why neg len calls
-        )
-        self.block_id = block_id
-        self.gas_limit = gas_limit
-        self.retries = retries
-        self.require_success = require_success
-        self.node_uri = _w3.provider.endpoint_uri if _w3 else None
-        self.max_workers = max_workers
-        self.parallel_threshold = parallel_threshold if max_workers > 1 else 1 << 31
-        self.max_conns = max_conns
-        self.chainid = chain_id(_w3)
-        # ugly
-        if require_success is True:
-            multicall_map = (
-                MULTICALL_ADDRESSES
-                if self.chainid in MULTICALL_ADDRESSES
-                else MULTICALL2_ADDRESSES
-            )
-            self.multicall_sig = "aggregate((address,bytes)[])(uint256,bytes[])"
-        else:
-            multicall_map = MULTICALL2_ADDRESSES
-            self.multicall_sig = "tryBlockAndAggregate(bool,(address,bytes)[])(uint256,uint256,(bool,bytes)[])"
-        self.multicall_address = multicall_map[self.chainid]
-        self.batch_timeout = batch_timeout
-
-    def __repr__(self) -> str:
-        return f'Multicall {", ".join(set(map(lambda call: call.function, self.calls)))}, {len(self.calls)} calls'
 
     def __call__(self) -> Dict[str, Any]:
         if len(self.calls) == 0:
             return {}
+        else:
+            return self.fetch_outputs_refactored()
 
-        start = time()
-        response: Dict[str, Any]
-        with multiprocessing.Pool(processes=self.max_workers) as multiprocessing_pool:
-                response = self.fetch_outputs(multiprocessing_pool)
-        logger.debug(f"Multicall took {time() - start}s")
-        print(f"Multicall took {time() - start}s")
-        return response
-
-    def encode_args(self, calls_batch: List[Call]) -> List[Dict]:
-        args = get_args(calls_batch, self.require_success)
+    def encode_args(self, call_batch: List[Call]):
+        args = get_args(call_batch, self.require_success)
         calldata = f"0x{self.aggregate.signature.encode_data(args).hex()}"
 
         args = [
             {"to": self.aggregate.target, "data": calldata},
             hex(self.block_id) if self.block_id is not None else "latest",
         ]
+        # why incode the args at the start?
 
         if self.gas_limit:
             args[0]["gas"] = f"0x{self.gas_limit:x}"
 
         return args
 
-    def decode_outputs(self, calls_batch: List[Call], result: bytes):
+    def decode_outputs(self, calls_batch: List[Call], result: bytes) -> List[CallResponseData]:
         if self.require_success is True:
             _, outputs = Call.decode_output(
                 result, self.aggregate.signature, self.aggregate.returns
@@ -190,15 +143,43 @@ class Multicall:
                 result, self.aggregate.signature, self.aggregate.returns
             )
 
-        outputs = [
-            Call.decode_output(output, call.signature, call.returns, success)
-            for call, (success, output) in zip(calls_batch, outputs)
-        ]
+        response_data = []
 
-        return {name: result for output in outputs for name, result in output.items()}
+        for call, response in zip(calls_batch, outputs):
+            success, bytes_output = response
+            pythonic_output = Call.decode_output(bytes_output, call.signature, None, success)
+            response_data.append(CallResponseData(call, pythonic_output, bytes_output, success))
 
-    async def rpc_eth_call(self, session: aiohttp.ClientSession, args) -> bytes | EthRPCError:
+        return response_data
+
+    async def rpc_aggregator(
+        self, call_batches: List[List[Call]]
+    ) -> Tuple[Exception | None, List[CallResponseData]]:
+        async with aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(limit=self.max_concurrent_requests),
+            timeout=aiohttp.ClientTimeout(self.batch_timeout),
+        ) as session:
+            return await asyncio.gather(
+                *[self.rpc_eth_call(session, calls) for calls in call_batches]
+            ) 
+
+    def _determine_error(self, data): # I'm not using theses
+        if "error" in data:
+            if "out of gas" in data["error"]["message"]:
+                return EthRPCError.OUT_OF_GAS
+            # this is never happening.
+            # Maybe this was an issue when this library was written
+            # but I don't think so now
+            elif "execution reverted" in data["error"]["message"]:
+                return EthRPCError.EXECUTION_REVERTED
+            else:
+                return EthRPCError.UNKNOWN
+        return None
+
+    async def rpc_eth_call(self, session: aiohttp.ClientSession, calls_batch:list[Call]
+        )-> Tuple[EthRPCError | None, List[CallResponseData]]:
         """Make the multicall with many calls in it"""
+        args = self.encode_args(calls_batch) # might run into malformed calls here. # maybe don't worry about it
         async with session.post(
             self.node_uri,
             headers={"Content-Type": "application/json"},
@@ -214,164 +195,46 @@ class Multicall:
 
             assert response.status == 200, RuntimeError(f"Network Error: {response}")
             data = await response.json()
-            if "error" in data:
-                if "out of gas" in data["error"]["message"]:
-                    return EthRPCError.OUT_OF_GAS
-                elif "execution reverted" in data["error"]["message"]:
-                    return EthRPCError.EXECUTION_REVERTED
-                else:
-                    return EthRPCError.UNKNOWN
-            result = bytes.fromhex(data["result"][2:])
-            return result
-
-    async def rpc_aggregator(
-        self, args_list: List[List]
-    ) -> List[Union[EthRPCError, bytes]]:
-
-        async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(limit=self.max_conns),
-            timeout=aiohttp.ClientTimeout(self.batch_timeout),
-        ) as session:
-            return await asyncio.gather(
-                *[self.rpc_eth_call(session, args) for args in args_list]
-            )
-
-
-    def fetch_outputs_refactored(self, p: Optional[multiprocessing.Pool]) -> Dict[str, Any]:
-        calls = self.calls
-        outputs = {}
-
-        # desired behavior
-
-        # try all calls in 1 multicall
-
-        # if multicall fails because of EthRPCError.OUT_OF_GAS
-
-        # split into two chunks, add calls chunks to queue.
-
-        # add to calls, try again?
-
-        # do while calls > 0
-
-        for num_batches in range(1, self.retries):
-            # useful because if the the calls fails you can break it up into more chunks
-            batches = np.array_split(calls, num_batches)
-            encoded_args = list(
-                    p.imap(
-                        self.encode_args,
-                        batches,
-                        chunksize=-(-len(batches) // self.max_workers),
-                    )
-                )
-            
-            results = asyncio.run(self.rpc_aggregator(encoded_args)) # not sure type of results
-            if self.require_success and EthRPCError.EXECUTION_REVERTED in results:
-                raise RuntimeError("Multicall with require_success=True failed.")
-
-            # find remaining calls 
-            # how big an issue is out of gas issues?
-
-            # make calls be all the calls in each of the batches that failed.
-            # I think the default behavior should be binary search on the batches. 
-            # get an intutition for the gas costs. that make it fail
-            # how many balanceOf make it fail? on Alchemy
-            calls = list(
-                itertools.chain(
-                    *[
-                        batches[i]
-                        for i, x in enumerate(results)
-                        if x == EthRPCError.OUT_OF_GAS
-                    ]
-                )
-            )
-
-            successes = [
-                (batch, result)
-                for batch, result in zip(batches, results)
-                if not isinstance(result, EthRPCError)
-            ]
-            batches, results = zip(*successes) if len(successes) > 0 else ([], []) # added >0 for readablity
-
-            outputs.update(
-                    ChainMap(
-                    *p.starmap(
-                    self.decode_outputs,
-                    zip(batches, results),
-                    chunksize=-(-len(batches) // self.max_workers),
-                    )
-                )
-            )
-
-        return outputs
-
-
-    def fetch_outputs(self, p: Optional[multiprocessing.Pool] = None) -> Dict[str, Any]:
-        calls = self.calls
-
-        outputs = {}
-        # TODO: refactor this to be more readable
-        for batch_size in itertools.chain(
-            map(lambda i: self.batch_size // (2 ** i), range(self.retries)), [1]
-        ): 
-            if len(calls) == 0:
-                break
-
-            batches = [
-                calls[batch : batch + batch_size]
-                for batch in range(0, len(calls), batch_size)
-            ]
-
-            encoded_args: List # this doens't execute # see if you can see how much gas was used in this call
-            if (p is not None) and (len(batches) > self.parallel_threshold): # what the heck? there are two many params defining this behaviors
-                encoded_args = list(
-                    p.imap(
-                        self.encode_args,
-                        batches,
-                        chunksize=-(-len(batches) // self.max_workers),
-                    )
-                )
+            error = self._determine_error(data)
+            if error is None:
+                bytes_result = bytes.fromhex(data["result"][2:])
+                cleaned_results = self.decode_outputs(calls_batch, bytes_result)
+                return error, cleaned_results
             else:
-                encoded_args = list(map(self.encode_args, batches))
+                return error, []
+
+    def _fetch_data(self, calls_remaining: list[Call], n_calls_per_batch: int) -> List[CallResponseData]:
+        num_batches = len(calls_remaining) // n_calls_per_batch ## make sure to scale this down when it fails, 
+        call_batches = np.array_split(calls_remaining, num_batches)
+        call_result_tuples = asyncio.run(self.rpc_aggregator(call_batches))
+        externally_fetched_data = [data for error, data in call_result_tuples if error is None]
+        return externally_fetched_data
+
+    def _fetch_locally(self) -> Tuple[List[Call], List[CallResponseData]]:
+        return self.calls, []
+
+    def _save_locally(self, externally_fetched_data: List[CallResponseData]) -> None:
+        pass
 
 
-            results = asyncio.run(self.rpc_aggregator(encoded_args))
+    def fetch_outputs_refactored(self) -> Dict[str, Any]:
+        calls_remaining, locally_fetched_data = self._fetch_locally()
 
-            if self.require_success and EthRPCError.EXECUTION_REVERTED in results:
-                raise RuntimeError("Multicall with require_success=True failed.")
+        externally_fetched_data = self._fetch_data(calls_remaining, self.n_calls_per_batch)
+        self._save_locally(externally_fetched_data)
+        all_fetched_data = [*locally_fetched_data, * externally_fetched_data]
+        cleaned_outputs = self._post_process_call_response_data(all_fetched_data)
+        return cleaned_outputs
 
-            # find remaining calls
-            calls = list(
-                itertools.chain(
-                    *[
-                        batches[i]
-                        for i, x in enumerate(results)
-                        if x == EthRPCError.OUT_OF_GAS
-                    ]
-                )
-            )
 
-            successes = [
-                (batch, result)
-                for batch, result in zip(batches, results)
-                if not isinstance(result, EthRPCError)
-            ]
-            batches, results = zip(*successes) if len(successes) else ([], [])
-
-            if p and len(batches) > self.parallel_threshold:
-                outputs.update(
-                    ChainMap(
-                        *p.starmap(
-                            self.decode_outputs,
-                            zip(batches, results),
-                            chunksize=-(-len(batches) // self.max_workers),
-                        )
-                    )
-                )
-            else:
-                outputs.update(ChainMap(*map(self.decode_outputs, batches, results)))
-
-        return outputs
-
+    def _post_process_call_response_data(self, call_response_data: List[CallResponseData]) -> list[dict]:
+        cleaned_data = []
+        for data in call_response_data:
+            call = data.call
+            post_function_output_data = Call.decode_output(data.bytes_output, call.signature, call.returns, data.function_success)
+            cleaned_data.append(post_function_output_data)
+        return cleaned_data # to a single dict? 
+        
     @property
     def aggregate(self) -> Call:
         return Call(
@@ -382,3 +245,8 @@ class Multicall:
             _w3=Web3(HTTPProvider(self.node_uri)),
             gas_limit=self.gas_limit,
         )
+
+
+
+class Multicall:
+    pass
