@@ -1,0 +1,30 @@
+
+Narrow: few calls in a single block_id
+Wide: many calls in a single block_id
+
+Shallow: few block_id
+Deep: many block_id
+
+Work well in each combination, but in particular (wide and shallow) and (deep and narrow)
+
+Reuse TCP connections when possible
+
+Minimal parameters for controlling rate limiting the speed of requests. Ideally only (num_concurrent_requests).
+
+Make a single sql query to get all local data
+
+Make a single sql write to push all the new data. (unclear if this is the right idea)
+
+When possible save the raw data in their pythonic format. eg strings, bytes, ints, tuples, tuples of same. 
+
+Only supporty tryBlockAndAggregate
+
+Add a class called (MultiBlockCall)
+
+take an array of calls, and blocks, be fast about getting them. 
+
+< 1 second for all MultiBlockCall where you already have all the data. 
+
+
+
+ 

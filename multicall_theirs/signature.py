@@ -44,6 +44,3 @@ class Signature:
 
     def decode_data(self, output: Decodable) -> Any:
         return decode_single(self.output_types, output)
-    
-    def to_cache_id(self):
-        pass

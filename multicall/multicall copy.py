@@ -13,90 +13,11 @@ from web3 import Web3
 from web3.providers import HTTPProvider
 
 
-from multicall import Call, 
-from multicall import Signature
+from multicall import Call
 from multicall.constants import MULTICALL2_ADDRESSES, MULTICALL_ADDRESSES
 from multicall.errors import EthRPCError
 from multicall.loggers import setup_logger
-from multicall.utils import chain_id
-
-GAS_LIMIT = 55_000_000
-
-
-# only support try and aggragate
-class Multicall:
-    """
-    Just make only external calls don't touch the local sqlite database
-    """
-
-    def __init__(
-        self,
-        calls: List[Call],
-        w3: Web3,
-        max_concurrent_requests: int = 1,
-        n_calls_per_batch:int = 50,
-        batch_timeout: int = 300,
-        ):
-        if len(calls) == 0:
-            raise ValueError('Must supply more than 0 calls')
-        self.calls = calls
-        self.w3 = w3
-        self.max_concurrent_requests = max_concurrent_requests
-        self.n_calls_per_batch= n_calls_per_batch
-        self.batch_timeout = batch_timeout
-
-        self.chainid = 1 # Only support ETH mainnet
-        self.multicall_sig = Signature("tryBlockAndAggregate(bool,(address,bytes)[])(uint256,uint256,(bool,bytes)[])")
-        self.multicall_address = MULTICALL2_ADDRESSES
-
-        multicall_args = []
-        for call in self.calls:
-            single_call_calldata = call.signature.encode_data(call.arguments)
-            multicall_args.append([call.target, single_call_calldata])
-
-        self.calldata = f"0x{self.multicall_sig.encode_data(multicall_args)}"
-        # why do I need multicall_as_call? 
-        # -> because I need what was call.signature and call.returns for OldCall.decode output
-        # self.multicall_as_call = Call(self.multicall_address, self.multicall_sig,)
-    
-    def to_rpc_call_args(self, block_id: int | None):
-        """Convert this multicall into the format required fo for a rpc node api request"""
-        block_id_for_rpc_call = hex(block_id) if isinstance(block_id, int) else 'latest'
-        args = [{"to": self.multicall_address, "data": self.calldata, 'gas': GAS_LIMIT}, block_id_for_rpc_call]          
-        return args
-    
-    def decode_outputs(self, calls_batch: List[Call], raw_bytes_output: bytes):
-        decoded_output = self.multicall_sig.decode_data(raw_bytes_output)
-        # decoded_output this should be an array 
-        
-        label_to_output = []
-
-        for label, handling_function, decoded_value in zip(
-            self.return_data_labels,
-            self.return_handling_functions,
-            decoded_output
-            ):
-                try:
-                    processed_output = handling_function(decoded_value)
-                except Exception as exception:
-                    raise HandlingFunctionFailed(handling_function, decoded_value, exception)
-                
-                label_to_output[label] = processed_output
-        
-        return label_to_output
-
-
-
-    
-    def __call__(self, block_id: int | None) -> Dict[str, Any]:
-        rpc_args = self.to_rpc_call_args(block_id)
-        raw_bytes_output = self.w3.eth.call(*rpc_args)
-        label_to_output = self.multicall_sig(raw_bytes_output)
-        return label_to_output
-
-
-
-
+from multicall.utils import chunks, chain_id
 
 
 @dataclass
@@ -204,10 +125,10 @@ class MulticallV2:
             {"to": self.aggregate.target, "data": calldata},
             hex(self.block_id) if self.block_id is not None else "latest",
         ]
-        # why incode the args at the start?
+        # why encode the args at the start?
 
         if self.gas_limit:
-            args[0]["gas"] = f"0x{self.gas_limit:x}"
+            args[0]["gas"] = f"0x{self.gas_limit:x}" # idk why this is here is this?
 
         return args
 
@@ -323,7 +244,7 @@ class MulticallV2:
             self.multicall_sig,
             returns=None,
             block_id=self.block_id,
-            _w3=Web3(HTTPProvider(self.node_uri)),
+            _w3=Web3(HTTPProvider(self.node_uri)), ## redundent
             gas_limit=self.gas_limit,
         )
 
