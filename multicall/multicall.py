@@ -13,7 +13,7 @@ from web3 import Web3
 from web3.providers import HTTPProvider
 
 
-from multicall import Call, 
+from multicall import Call
 from multicall import Signature
 from multicall.constants import MULTICALL2_ADDRESSES, MULTICALL_ADDRESSES
 from multicall.errors import EthRPCError
@@ -327,7 +327,7 @@ class MulticallV2:
             gas_limit=self.gas_limit,
         )
 
-
+# spend no more than 2 hours on this today
 
 class Multicall:
     pass

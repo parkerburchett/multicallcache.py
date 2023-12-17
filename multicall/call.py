@@ -11,7 +11,7 @@ import inspect
 
 GAS_LIMIT = 55_000_000
 # alchemy default gas limit, tx will revert if they exceed this theshsold, 
-# non issues 
+# non issue this won't happen. It ought to timeout faster
 
 
 class HandlingFunctionFailed(Exception):
