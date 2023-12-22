@@ -1,122 +1,112 @@
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+# import eth_retry needed?
 
-import eth_retry
-from eth_typing import Address, ChecksumAddress, HexAddress
-from eth_typing.abi import Decodable
 from eth_utils import to_checksum_address
 from web3 import Web3
-
+from web3.exceptions import TimeExhausted, ContractLogicError
+from typing import Any, Callable, Tuple
 from multicall import Signature
-from multicall.loggers import setup_logger
+from enum import Enum
+import inspect
+
+GAS_LIMIT = 55_000_000
+# alchemy default gas limit, tx will revert if they exceed this theshsold, 
+# non issue this won't happen. It ought to timeout faster
 
 
-logger = setup_logger(__name__)
+class HandlingFunctionFailed(Exception):
+    
+    def __init__(self, handling_function: Callable, decoded_value: Any, exception: Exception):
+        function_source_code = inspect.getsource(handling_function)
+        super().__init__(f"""handling_function raised an exception
+        
+        {function_source_code=}
 
-AnyAddress = Union[str, Address, ChecksumAddress, HexAddress]
+        {decoded_value=} {type(decoded_value)=}
+        Raised this error
+        {exception=}"""
+        )
 
 
+class ReturnDataAndHandlingFunctionLengthMismatch(Exception):
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
+
+class FailedToBuildCalldata(Exception):
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
+# only supports aggregate not try and aggregate
 class Call:
     def __init__(
         self,
-        target: AnyAddress,
-        function: Union[
-            str, Iterable[Union[str, Any]]
-        ],  # 'funcName(dtype)(dtype)' or ['funcName(dtype)(dtype)', input0, input1, ...]
-        returns: Optional[Iterable[Tuple[str, Callable]]] = None,
-        block_id: Optional[int] = None,
-        gas_limit: Optional[int] = None,
-        _w3: Optional[Web3] = None,
-    ) -> None:
-        self.target = to_checksum_address(target)
-        self.returns = returns
-        self.block_id = block_id
-        self.gas_limit = gas_limit
-        self.w3 = _w3
-
-        self.args: Optional[List[Any]]
-        if isinstance(function, list):
-            self.function, *self.args = function
-        else:
-            self.function = function
-            self.args = None
-
-        self.signature = Signature(self.function)
-
-    def __repr__(self) -> str:
-        return f"Call {self.target}.{self.function}"
-
-    @property
-    def data(self) -> bytes:
-        return self.signature.encode_data(self.args)
-
-    @staticmethod
-    def decode_output(
-        output: Decodable,
-        signature: Signature,
-        returns: Optional[Iterable[Tuple[str, Callable]]] = None,
-        success: Optional[bool] = None,
-    ) -> Any:
-
-        if success is None:
-
-            def apply_handler(handler, value):
-                return handler(value)
-
-        else:
-
-            def apply_handler(handler, value):
-                return handler(success, value)
-
-        if success is None or success:
-            try:
-                decoded = signature.decode_data(output)
-            except:
-                success, decoded = False, [None] * (1 if not returns else len(returns))  # type: ignore
-        else:
-            decoded = [None] * (1 if not returns else len(returns))  # type: ignore
-
-        logger.debug(f"returns: {returns}")
-        logger.debug(f"decoded: {decoded}")
-
-        if returns:
-            return {
-                name: apply_handler(handler, value) if handler else value
-                for (name, handler), value in zip(returns, decoded)
-            }
-        else:
-            return decoded if len(decoded) > 1 else decoded[0]
-
-    @eth_retry.auto_retry
-    def __call__(self, args: Optional[Any] = None) -> Any:
-        if self.w3 is None:
-            raise RuntimeError
-        args = Call.prep_args(
-            self.target,
-            self.signature,
-            args or self.args,
-            self.block_id,
-            self.gas_limit,
-        )
-        return Call.decode_output(
-            self.w3.eth.call(*args),
-            self.signature,
-            self.returns,
-        )
-
-    @staticmethod
-    def prep_args(
         target: str,
-        signature: Signature,
-        args: Optional[Any],
-        block_id: Optional[int],
-        gas_limit: int,
-    ) -> List:
+        signature: str,
+        arguments: Tuple[str], # not certain if need 
+        data_labels: tuple[str] | str,
+        handling_functions: Tuple[Callable] | Callable,
+        w3: Web3
+    ) -> None:
+        """
+        target: the address that you want to make a funciton call on. 
+        signature: the method to call on target, eg `totalSupply()(uint256)`
+        arguments: the tuple of arguments to pass to the funciton  
+        return_data_labels: what to label the returning data as
+        handling_functions: what function to pass in the pythonic output of return_data_label into
+        """
+        arguments = arguments if isinstance(arguments, tuple) else (arguments, )
+        data_labels = data_labels if isinstance(data_labels, tuple) else (data_labels, )
+        handling_functions = handling_functions if isinstance(handling_functions, tuple) else (handling_functions, )
+        if len(data_labels) != len(handling_functions):
+            raise ReturnDataAndHandlingFunctionLengthMismatch(
+                f'{len(self.data_labels)=} != {len(handling_functions)}=')
 
-        calldata = signature.encode_data(args)
+        self.data_labels = data_labels
+        self.handling_functions = handling_functions   
+        self.target = to_checksum_address(target)
+        self.signature = Signature(signature)
+        self.arguments = arguments
+        self.w3 = w3
+        self.calldata = self.signature.encode_data(self.arguments)
 
-        args = [{"to": target, "data": calldata}, block_id]
-
-        if gas_limit:
-            args[0]["gas"] = gas_limit
-
+    def to_rpc_call_args(self, block_id: int | str):
+        """Convert this call into the format to send to a rpc node api request"""
+        block_id_for_rpc_call = hex(block_id) if isinstance(block_id, int) else 'latest'
+        args = [{"to": self.target, "data": self.calldata, 'gas': GAS_LIMIT}, block_id_for_rpc_call]          
         return args
+    
+    def decode_output(self, raw_bytes_output: bytes) -> dict[str, Any]:
+
+        decoded_output: Tuple[any] = self.signature.decode_data(raw_bytes_output)
+        if len(self.data_labels) != len(decoded_output):
+            raise ReturnDataAndHandlingFunctionLengthMismatch(f'{len(self.data_labels)=} != {len(decoded_output)=}=')
+        
+        label_to_output = {}
+
+        for label, handling_function, decoded_value in zip(
+            self.data_labels,
+            self.handling_functions,
+            decoded_output
+            ):
+                try:
+                    label_to_output[label] = handling_function(decoded_value)
+                except Exception as e:
+                    raise HandlingFunctionFailed(handling_function, decoded_value, e)
+        return label_to_output
+            
+
+    def __call__(self, block_id: int | str = 'latest') -> dict[str, Any]:
+
+        # todo, fail if attempting before the multicallV2 block was deployed
+        # Stretch, (maybe mock deploy it with the alchemy modify state before call)
+        # not certain the name
+        rpc_args = self.to_rpc_call_args(block_id)
+        #TODO: wrap in error catching for rate limiting and or archive node failuress
+        try:
+            raw_bytes_output = self.w3.eth.call(*rpc_args)
+        except ContractLogicError as e:
+            raise e
+        label_to_output = self.decode_output(raw_bytes_output)
+        return label_to_output

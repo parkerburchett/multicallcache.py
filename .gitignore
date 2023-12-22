@@ -5,6 +5,9 @@ env/
 cache/
 .mypy_cache
 .pytest_cache
+.env
 
 venv
 conf.json
+cache_db.sqlite
+many_weth_transfers.csv
