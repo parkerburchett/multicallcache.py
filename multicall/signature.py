@@ -1,5 +1,7 @@
 from typing import Any, List, Optional, Tuple
-from eth_abi import decode_single, encode_single
+import eth_abi
+# from eth_abi import decode_single, encode_single
+# from eth_abi.exceptions import ValueOutOfBounds
 from eth_typing.abi import Decodable
 from eth_utils import function_signature_to_4byte_selector
 
@@ -11,8 +13,8 @@ import warnings
 #
 
 class SignatureFailedToEncodeData(Exception):
-    def __init__(self, exception: Exception):
-        super().__init__(f"Signature.encode_data failed with {exception=}")
+    def __init__(self, message):
+        super().__init__(message=message)
 
 
 def parse_signature(signature: str) -> Tuple[str, str, str]:
@@ -51,19 +53,18 @@ class Signature:
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")
                 return (
-                    self.fourbyte + encode_single(self.input_types, args)
+                    self.fourbyte + eth_abi.encode_single(self.input_types, args)
                     if args
                     else self.fourbyte
                 )
-        except Exception as e:
-            raise SignatureFailedToEncodeData(e)
+        except eth_abi.exceptionsValueOutOfBounds as e:
+            raise SignatureFailedToEncodeData()
 
 
     def decode_data(self, output: Decodable) -> Any:
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")
-                            
-            return decode_single(self.output_types, output)
+            warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")      
+            return eth_abi.decode_single(self.output_types, output)
     
     def to_cache_id(self):
         pass

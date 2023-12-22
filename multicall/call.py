@@ -2,6 +2,7 @@
 
 from eth_utils import to_checksum_address
 from web3 import Web3
+from web3.exceptions import TimeExhausted, ContractLogicError
 from typing import Any, Callable, Tuple
 from multicall import Signature
 from enum import Enum
@@ -17,7 +18,7 @@ class HandlingFunctionFailed(Exception):
     def __init__(self, handling_function: Callable, decoded_value: Any, exception: Exception):
         function_source_code = inspect.getsource(handling_function)
         super().__init__(f"""handling_function raised an exception
-
+        
         {function_source_code=}
 
         {decoded_value=} {type(decoded_value)=}
@@ -32,9 +33,10 @@ class ReturnDataAndHandlingFunctionLengthMismatch(Exception):
         super().__init__(self.message)
 
 
-class FunctionCallResponseType(Enum):
-    SUCCEEDED: 1
-    REVERTED: 2
+class FailedToBuildCalldata(Exception):
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
 
 # only supports aggregate not try and aggregate
 class Call:
@@ -68,7 +70,7 @@ class Call:
         self.arguments = arguments
         self.w3 = w3
         self.calldata = self.signature.encode_data(self.arguments)
-    
+
     def to_rpc_call_args(self, block_id: int | str):
         """Convert this call into the format to send to a rpc node api request"""
         block_id_for_rpc_call = hex(block_id) if isinstance(block_id, int) else 'latest'
@@ -104,8 +106,7 @@ class Call:
         #TODO: wrap in error catching for rate limiting and or archive node failuress
         try:
             raw_bytes_output = self.w3.eth.call(*rpc_args)
-        except Exception as e:
-            pass
+        except ContractLogicError as e:
             raise e
         label_to_output = self.decode_output(raw_bytes_output)
         return label_to_output

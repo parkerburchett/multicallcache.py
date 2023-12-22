@@ -4,8 +4,9 @@ from dotenv import load_dotenv
 import pytest
 from web3 import Web3
 import web3
-
+import multicall
 from multicall import Call
+from multicall.signature import SignatureFailedToEncodeData
 
 # TODO: get black to work
 # $ poetry run pytest tests/mine/
@@ -60,23 +61,12 @@ def test_malformed_calls():
     
     # I am stuck here. I can't figure out the import errors and catching the custom error
     # TODO: make sure this catches the correct exception
-    
-    # too_many_args_call = Call(cbETH, 'totalSupply()(uint256)', (cbETH), 'totalSupply', identify_function, w3)
+    with pytest.raises(Exception) as e:
+        too_many_args_call = Call(cbETH, 'totalSupply()(uint256)', (cbETH), 'totalSupply', identify_function, w3)
+        too_many_args_call()
 
-    # with pytest.raises(Exception):
-    #     too_many_args_call()
+    with pytest.raises(Exception) as e:
+        too_few_args_call = Call(cbETH, 'balanceOf(address)(uint256)', (), 'balanceOf', identify_function, w3)
+        too_few_args_call()
 
-    # too_few_args_call = Call(cbETH, 'balanceOf(address)(uint256)', (), 'balanceOf', identify_function, w3)
-    # with pytest.raises(Exception):
-    #     too_few_args_call()
-    
-
-# def test_malformed_handling_functions():
-    
-#     # bad function
-#     # function is lambda # no lambda functions (not certain is needed but i suspect)
-#     #web3.exceptions.ContractLogicError
-#     pass #TODO
-
-
-# # test_malformed_calls()
+test_malformed_calls()
