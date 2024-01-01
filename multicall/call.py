@@ -1,16 +1,11 @@
-# import eth_retry needed?
-
 from eth_utils import to_checksum_address
 from web3 import Web3
-from web3.exceptions import ContractLogicError
 from typing import Any, Callable, Tuple
-from multicall import Signature
+from multicall.signature import Signature
 import inspect
 
+# single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
-# alchemy default gas limit, tx will revert if they exceed this theshsold, 
-# non issue this won't happen. It ought to timeout faster
-
 
 class HandlingFunctionFailed(Exception):
     
@@ -78,8 +73,8 @@ class Call:
         return args
     
     def decode_output(self, raw_bytes_output: bytes) -> dict[str, Any]:
+        decoded_output = self.signature.decode_data(raw_bytes_output)
 
-        decoded_output: Tuple[any] = self.signature.decode_data(raw_bytes_output)
         if len(self.data_labels) != len(decoded_output):
             raise ReturnDataAndHandlingFunctionLengthMismatch(f'{len(self.data_labels)=} != {len(decoded_output)=}=')
         
@@ -90,23 +85,16 @@ class Call:
             self.handling_functions,
             decoded_output
             ):
-                try:
-                    label_to_output[label] = handling_function(decoded_value)
-                except Exception as e:
-                    raise HandlingFunctionFailed(handling_function, decoded_value, e)
+            label_to_output[label] = handling_function(decoded_value)
         return label_to_output
             
 
     def __call__(self, block_id: int | str = 'latest') -> dict[str, Any]:
-
-        # todo, fail if attempting before the multicallV2 block was deployed
-        # Stretch, (maybe mock deploy it with the alchemy modify state before call)
-        # not certain the name
+        # TODO:, fail if attempting before the multicallV2 block was deployed
+        # TODO: Maybe mock deploy it with the alchemy modify state before call)
+        # TODO: wrap in error catching for rate limiting and or archive node failures
+        # TODO: this has the same pattern as multicall can we unifiy them with inheritance
         rpc_args = self.to_rpc_call_args(block_id)
-        #TODO: wrap in error catching for rate limiting and or archive node failuress
-        try:
-            raw_bytes_output = self.w3.eth.call(*rpc_args)
-        except ContractLogicError as e:
-            raise e
+        raw_bytes_output = self.w3.eth.call(*rpc_args)
         label_to_output = self.decode_output(raw_bytes_output)
         return label_to_output

@@ -38,17 +38,7 @@ make a single query to a sqllite db that gives all the rows of the exisintg
 # execute many. 
 
 
-
-
-
-
-
-
-
 """
-
-
-
 
 def call_to_db_id(call: Call) -> str:
     return call.target, call.signature.signature, call.args, call.block_id

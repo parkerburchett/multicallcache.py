@@ -1,13 +1,12 @@
 from typing import Any, List, Optional, Tuple
 import eth_abi
-# from eth_abi import decode_single, encode_single
-# from eth_abi.exceptions import ValueOutOfBounds
 from eth_typing.abi import Decodable
 from eth_utils import function_signature_to_4byte_selector
 
 import warnings
 
-# TODO: switch to using from eth_abi.abi import encode, decode
+# TODO: switch to the latest version of eth_abi for eth_abi.abi.encode and eth_abi.abi.encode
+# requires changing parse_signature()
 
 
 class SignatureFailedToEncodeData(Exception):
@@ -47,30 +46,20 @@ class Signature:
         self.fourbyte = function_signature_to_4byte_selector(self.function)
 
     def encode_data(self, args: Optional[Any] = None) -> bytes:
-        try:
-            with warnings.catch_warnings():
-                # print(f'{self.input_types=}')
-                # print(f'{args=}')
-                warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")
+        # TODO: add error catching
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")
 
-                if args is not None:
-                    args_encoded_with_types =  eth_abi.encode_single(self.input_types, args)
-                    return self.fourbyte + args_encoded_with_types
-                else:
-                    return self.fourbyte
-        except Exception as e:
-            # place holder
-            print(type(e), e)
-            raise Exception('Signature.encode data failed')
-        # except eth_abi.exceptionsValueOutOfBounds as e:
-        #     raise SignatureFailedToEncodeData()
+            if args is not None:
+                args_encoded_with_types =  eth_abi.encode_single(self.input_types, args)
+                return self.fourbyte + args_encoded_with_types
+            else:
+                return self.fourbyte
 
 
     def decode_data(self, output: Decodable) -> Any:
+        # TODO: add error catching
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")      
             decoded_output = eth_abi.decode_single(self.output_types, output)
             return decoded_output
-    
-    def to_cache_id(self):
-        pass
