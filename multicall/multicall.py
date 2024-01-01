@@ -3,11 +3,8 @@ from typing import Any, Dict, List
 from web3 import Web3
 
 
-from multicall import Call
-from multicall import Signature
-
-GAS_LIMIT = 55_000_000
-
+from multicall.call import Call, GAS_LIMIT
+from multicall.signature import Signature
 
 class Multicall:
 
