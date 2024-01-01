@@ -5,7 +5,7 @@ import pytest
 from web3 import Web3
 import web3
 import multicall
-from multicall import Call
+from multicall.call import Call
 from multicall.signature import SignatureFailedToEncodeData
 
 # TODO: get black to work
