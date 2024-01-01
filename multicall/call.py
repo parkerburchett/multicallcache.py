@@ -38,7 +38,8 @@ class FailedToBuildCalldata(Exception):
         self.message = message
         super().__init__(self.message)
 
-# only supports aggregate not try and aggregate
+
+
 class Call:
     def __init__(
         self,

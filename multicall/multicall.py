@@ -6,6 +6,7 @@ import multiprocessing
 from time import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass
+import hexbytes
 
 import aiohttp
 import numpy as np
@@ -45,15 +46,19 @@ class Multicall:
         self.n_calls_per_batch= n_calls_per_batch
         self.batch_timeout = batch_timeout
 
-        self.chainid = 1 # Only support ETH mainnet
-        self.multicall_sig = Signature("tryBlockAndAggregate(bool,(address,bytes)[])((uint256,uint256,(bool,bytes)[]))")
-        self.multicall_address = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696" # MULTICALL2_ADDRESSES
+        # function tryAggregate(bool requireSuccess, Call[] memory calls) public returns (Result[] memory returnData)
+        # struct Result {
+        #     bool success;
+        #     bytes returnData; 
+        # }
+            
+        self.multicall_sig = Signature("tryAggregate(bool,(address,bytes)[])((bool,bytes)[])")
+        self.multicall_address = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696" # only support ETH
 
         multicall_args = []
         for call in self.calls:
             single_call_calldata = call.signature.encode_data(call.arguments)
             multicall_args.append((call.target, single_call_calldata))
-
 
         args = (False, tuple(multicall_args))
         self.calldata = f"0x{self.multicall_sig.encode_data(args).hex()}"
@@ -65,35 +70,29 @@ class Multicall:
     def to_rpc_call_args(self, block_id: int | None):
         """Convert this multicall into the format required fo for a rpc node api request"""
         block_id_for_rpc_call = hex(block_id) if isinstance(block_id, int) else 'latest'
-
         args = [{"to": self.multicall_address, "data": self.calldata, 'gas': GAS_LIMIT}, block_id_for_rpc_call]          
         return args
     
-    def decode_outputs(self, calls_batch: List[Call], raw_bytes_output: bytes):
-        decoded_output = self.multicall_sig.decode_data(raw_bytes_output)
-        # decoded_output this should be an array 
-        
-        label_to_output = []
+    def decode_outputs(self, hex_bytes_output: bytes) -> dict:
+        # is decoded inside of a len 0 tuple , need to remove that layer of nesting
+        decoded_outputs: tuple[tuple(bool, bytes)] = self.multicall_sig.decode_data(hex_bytes_output)[0] 
+        label_to_output = {}
 
-        for label, handling_function, decoded_value in zip(
-            self.return_data_labels,
-            self.return_handling_functions,
-            decoded_output
-            ):
-                try:
-                    processed_output = handling_function(decoded_value)
-                except Exception as exception:
-                    # placeholder
-                    raise Exception(' HandlingFunctionFailed(handling_function, decoded_value, exception)')
-                
-                label_to_output[label] = processed_output
-        
+        for result, call in zip(decoded_outputs, self.calls):
+            success, single_function_call_bytes = result # from struct Multicall.Result
+            if success is True:
+                single_call_label_to_output = call.decode_output(single_function_call_bytes)
+                label_to_output.update(single_call_label_to_output)
+            else:
+                pass
+                print(call, 'failed')
+ 
         return label_to_output
 
     def __call__(self, block_id: int | None) -> Dict[str, Any]:
         rpc_args = self.to_rpc_call_args(block_id)
-        raw_bytes_output = self.w3.eth.call(*rpc_args)
-        label_to_output = self.multicall_sig.decode_data(raw_bytes_output)
+        raw_bytes_output= self.w3.eth.call(*rpc_args)
+        label_to_output = self.decode_outputs(raw_bytes_output) 
         return label_to_output
 
 

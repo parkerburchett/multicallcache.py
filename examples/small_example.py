@@ -19,12 +19,11 @@ cbETH_holder = '0xED1F7bb04D2BA2b6EbE087026F03C96Ea2c357A8'
 def identify_function(value):
     return value
 
-call = Call(cbETH, 'balanceOf(address)(uint256)', (cbETH_holder),
-            'balanceOf', identify_function, w3)
+call1 = Call(cbETH, 'balanceOf(address)(uint256)', (cbETH_holder), 'balanceOf1', identify_function, w3)
+call2 = Call(cbETH, 'balanceOf(address)(uint256)', (cbETH_holder), 'balanceOf2', identify_function, w3)
+           
 
-# print(call(18_000_000))
-
-multi = Multicall([call], w3) # multicall.encode data fails here
+multi = Multicall([call1, call2], w3)
     
 a = multi(18_000_000)
 

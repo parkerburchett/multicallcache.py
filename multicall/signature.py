@@ -51,8 +51,8 @@ class Signature:
     def encode_data(self, args: Optional[Any] = None) -> bytes:
         try:
             with warnings.catch_warnings():
-                print(f'{self.input_types=}')
-                print(f'{args=}')
+                # print(f'{self.input_types=}')
+                # print(f'{args=}')
                 warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")
 
                 if args is not None:
@@ -71,7 +71,8 @@ class Signature:
     def decode_data(self, output: Decodable) -> Any:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")      
-            return eth_abi.decode_single(self.output_types, output)
+            decoded_output = eth_abi.decode_single(self.output_types, output)
+            return decoded_output
     
     def to_cache_id(self):
         pass
