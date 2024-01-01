@@ -91,7 +91,7 @@ class Multicall:
 
     def __call__(self, block_id: int | None) -> Dict[str, Any]:
         rpc_args = self.to_rpc_call_args(block_id)
-        raw_bytes_output= self.w3.eth.call(*rpc_args)
+        raw_bytes_output = self.w3.eth.call(*rpc_args)
         label_to_output = self.decode_outputs(raw_bytes_output) 
         return label_to_output
 
