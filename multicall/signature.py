@@ -7,10 +7,8 @@ from eth_utils import function_signature_to_4byte_selector
 
 import warnings
 
-# TODO: switch to using  from eth_abi.abi import encode, decode
+# TODO: switch to using from eth_abi.abi import encode, decode
 
-
-#
 
 class SignatureFailedToEncodeData(Exception):
     def __init__(self, message):
@@ -51,20 +49,28 @@ class Signature:
     def encode_data(self, args: Optional[Any] = None) -> bytes:
         try:
             with warnings.catch_warnings():
+                # print(f'{self.input_types=}')
+                # print(f'{args=}')
                 warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")
-                return (
-                    self.fourbyte + eth_abi.encode_single(self.input_types, args)
-                    if args
-                    else self.fourbyte
-                )
-        except eth_abi.exceptionsValueOutOfBounds as e:
-            raise SignatureFailedToEncodeData()
+
+                if args is not None:
+                    args_encoded_with_types =  eth_abi.encode_single(self.input_types, args)
+                    return self.fourbyte + args_encoded_with_types
+                else:
+                    return self.fourbyte
+        except Exception as e:
+            # place holder
+            print(type(e), e)
+            raise Exception('Signature.encode data failed')
+        # except eth_abi.exceptionsValueOutOfBounds as e:
+        #     raise SignatureFailedToEncodeData()
 
 
     def decode_data(self, output: Decodable) -> Any:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")      
-            return eth_abi.decode_single(self.output_types, output)
+            decoded_output = eth_abi.decode_single(self.output_types, output)
+            return decoded_output
     
     def to_cache_id(self):
         pass
