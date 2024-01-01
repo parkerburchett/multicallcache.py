@@ -21,6 +21,7 @@ def main():
     weth = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
     to_addresses = pd.read_csv('many_weth_transfers.csv').head(5000)['from']
     # 10k adresses fails
+    # MVP does not support batching. at most 5k calls per request. (TODO support up to 100k calls)
     # requests.exceptions.HTTPError: 413 Client Error: Payload Too Large for url: https://eth-mainnet.g.alchemy.com/v2/
 
 
