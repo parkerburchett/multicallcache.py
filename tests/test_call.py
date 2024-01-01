@@ -4,12 +4,21 @@ from dotenv import load_dotenv
 import pytest
 from web3 import Web3
 import web3
-import multicall
 from multicall.call import Call
-from multicall.signature import SignatureFailedToEncodeData
 
 # TODO: get black to work
-# $ poetry run pytest tests/mine/
+# current error message
+# parker@parker-desktop:~/Documents/GitHub/multicallcache.py$ poetry run black multicall/
+# Traceback (most recent call last):
+#   File "/home/parker/Documents/GitHub/multicallcache.py/.venv/bin/black", line 8, in <module>
+#     sys.exit(patched_main())
+#   File "/home/parker/Documents/GitHub/multicallcache.py/.venv/lib/python3.10/site-packages/black/__init__.py", line 1372, in patched_main
+#     patch_click()
+#   File "/home/parker/Documents/GitHub/multicallcache.py/.venv/lib/python3.10/site-packages/black/__init__.py", line 1358, in patch_click
+#     from click import _unicodefun
+# ImportError: cannot import name '_unicodefun' from 'click' (/home/parker/Documents/GitHub/multicallcache.py/.venv/lib/python3.10/site-packages/click/__init__.py)
+
+# $ poetry run pytest 
 
 load_dotenv()
 
