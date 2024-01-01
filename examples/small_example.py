@@ -5,7 +5,6 @@ from multicall import Call, Multicall
 MCD_VAT = '0x35d1b3f3d7966a1dfe207aa4514c12a259a0492b'
 from web3 import Web3
 
-w3 = Web3(Web3.HTTPProvider('https://eth-mainnet.g.alchemy.com/v2/HmvPfaHCp0P4zZYrgICJzBU_wuhIgUcO'))
 
 def identity(x):
     return x
