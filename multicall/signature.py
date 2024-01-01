@@ -7,10 +7,8 @@ from eth_utils import function_signature_to_4byte_selector
 
 import warnings
 
-# TODO: switch to using  from eth_abi.abi import encode, decode
+# TODO: switch to using from eth_abi.abi import encode, decode
 
-
-#
 
 class SignatureFailedToEncodeData(Exception):
     def __init__(self, message):
