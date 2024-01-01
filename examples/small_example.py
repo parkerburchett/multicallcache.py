@@ -4,8 +4,12 @@ from decimal import Decimal
 from multicall import Call, Multicall
 MCD_VAT = '0x35d1b3f3d7966a1dfe207aa4514c12a259a0492b'
 from web3 import Web3
+from dotenv import load_dotenv
 
+import os
 
+load_dotenv()
+w3 = Web3(Web3.HTTPProvider(os.environ.get('ALCHEMY_URL')))
 def identity(x):
     return x
 
