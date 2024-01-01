@@ -1,9 +1,6 @@
 import asyncio
-from collections import ChainMap
-import itertools
 import json
 import multiprocessing
-from time import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass
 
@@ -17,7 +14,7 @@ from multicall import Call
 from multicall.constants import MULTICALL2_ADDRESSES, MULTICALL_ADDRESSES
 from multicall.errors import EthRPCError
 from multicall.loggers import setup_logger
-from multicall.utils import chunks, chain_id
+from multicall.utils import chain_id
 
 
 @dataclass

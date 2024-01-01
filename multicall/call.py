@@ -2,10 +2,9 @@
 
 from eth_utils import to_checksum_address
 from web3 import Web3
-from web3.exceptions import TimeExhausted, ContractLogicError
+from web3.exceptions import ContractLogicError
 from typing import Any, Callable, Tuple
 from multicall import Signature
-from enum import Enum
 import inspect
 
 GAS_LIMIT = 55_000_000
