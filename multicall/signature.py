@@ -51,14 +51,21 @@ class Signature:
     def encode_data(self, args: Optional[Any] = None) -> bytes:
         try:
             with warnings.catch_warnings():
+                print(f'{self.input_types=}')
+                print(f'{args=}')
                 warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")
-                return (
-                    self.fourbyte + eth_abi.encode_single(self.input_types, args)
-                    if args
-                    else self.fourbyte
-                )
-        except eth_abi.exceptionsValueOutOfBounds as e:
-            raise SignatureFailedToEncodeData()
+
+                if args is not None:
+                    args_encoded_with_types =  eth_abi.encode_single(self.input_types, args)
+                    return self.fourbyte + args_encoded_with_types
+                else:
+                    return self.fourbyte
+        except Exception as e:
+            # place holder
+            print(type(e), e)
+            raise Exception('Signature.encode data failed')
+        # except eth_abi.exceptionsValueOutOfBounds as e:
+        #     raise SignatureFailedToEncodeData()
 
 
     def decode_data(self, output: Decodable) -> Any:
