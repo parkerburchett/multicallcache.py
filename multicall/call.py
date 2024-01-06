@@ -6,6 +6,8 @@ import inspect
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
+CALL_FAILED_REVERT_MESSAGE = "reverted_call_failed"
+NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
 
 
 class HandlingFunctionFailed(Exception):
@@ -75,12 +77,17 @@ class Call:
         return args
 
     def decode_output(self, raw_bytes_output: bytes) -> dict[str, Any]:
+        label_to_output = {}
+        if len(raw_bytes_output) == 0:
+            # calls to addresses that don't have any code at that block return HexBytes('0x')
+            for label in self.data_labels:
+                label_to_output[label] = NOT_A_CONTRACT_REVERT_MESSAGE
+            return label_to_output
+
         decoded_output = self.signature.decode_data(raw_bytes_output)
 
         if len(self.data_labels) != len(decoded_output):
             raise ReturnDataAndHandlingFunctionLengthMismatch(f"{len(self.data_labels)=} != {len(decoded_output)=}=")
-
-        label_to_output = {}
 
         for label, handling_function, decoded_value in zip(self.data_labels, self.handling_functions, decoded_output):
             label_to_output[label] = handling_function(decoded_value)
@@ -91,6 +98,8 @@ class Call:
         # TODO: Maybe mock deploy it with the alchemy modify state before call)
         # TODO: wrap in error catching for rate limiting and or archive node failures
         # TODO: this has the same pattern as multicall can we unifiy them with inheritance
+
+        # I think i am comfrotable with this failing
         rpc_args = self.to_rpc_call_args(block_id)
         raw_bytes_output = self.w3.eth.call(*rpc_args)
         label_to_output = self.decode_output(raw_bytes_output)

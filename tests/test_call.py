@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import pytest
 from web3 import Web3
 import web3
-from multicall.call import Call
+from multicall.call import Call, NOT_A_CONTRACT_REVERT_MESSAGE
 
 load_dotenv()
 
@@ -76,15 +76,34 @@ def test_multiple_return_values():
     assert vault_get_pool_tokens(BLOCK_TO_CHECK) == expected, "vault_get_pool_tokens failed"
 
 
-def test_malformed_calls():
-    bad_function_signature_call = Call(cbETH, "thisFunctionDoesNotExist()(uint256)", (), "", identify_function, w3)
+def test_non_existent_function_call():
+    bad_function_signature_call = Call(
+        cbETH, "thisFunctionDoesNotExist()(uint256)", (), "thisFunctionDoesNotExist", identify_function, w3
+    )
     with pytest.raises(web3.exceptions.ContractLogicError):
+        # we only know that thisFunctionDoesNotExist() doesn't exist when we try to call it.
         bad_function_signature_call()
 
+
+def test_call_to_an_address_without_code():
+    address_without_code = "0x0000000000000000000000000000000000000000"
+
+    call_to_address_without_code = Call(
+        address_without_code,
+        "thisFunctionDoesNotExist()(uint256)",
+        (),
+        "thisFunctionDoesNotExist",
+        identify_function,
+        w3,
+    )
+    assert call_to_address_without_code(BLOCK_TO_CHECK == {"thisFunctionDoesNotExist": NOT_A_CONTRACT_REVERT_MESSAGE})
+
+
+def test_malformed_calls():
     # I am stuck here. I can't figure out the import errors and catching the custom error
     # TODO: make sure this catches the correct exception
-    with pytest.raises(Exception) as e:
-        too_many_args_call = Call(
+    with pytest.raises(Exception):
+        Call(
             cbETH,
             "totalSupply()(uint256)",
             (cbETH),
@@ -92,11 +111,9 @@ def test_malformed_calls():
             identify_function,
             w3,
         )
-        too_many_args_call()
 
-    with pytest.raises(Exception) as e:
-        too_few_args_call = Call(cbETH, "balanceOf(address)(uint256)", (), "balanceOf", identify_function, w3)
-        too_few_args_call()
+    with pytest.raises(Exception):
+        Call(cbETH, "balanceOf(address)(uint256)", (), "balanceOf", identify_function, w3)
 
-
-test_malformed_calls()
+    with pytest.raises(Exception):
+        Call(cbETH, "balanceOf(address)(uint256)", (int(100)), "balanceOf", identify_function, w3)
