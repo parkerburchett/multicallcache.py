@@ -82,6 +82,7 @@ def test_non_existent_function_call():
     )
     with pytest.raises(web3.exceptions.ContractLogicError):
         # we only know that thisFunctionDoesNotExist() doesn't exist when we try to call it.
+        # so it succeeded top build but reverts on the call
         bad_function_signature_call()
 
 
