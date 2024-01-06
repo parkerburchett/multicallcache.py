@@ -48,18 +48,21 @@ class Signature:
     def encode_data(self, args: Optional[Any] = None) -> bytes:
         # TODO: add error catching
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")
+            warnings.filterwarnings(
+                "ignore", category=DeprecationWarning, module="eth_abi.codec"
+            )
 
             if args is not None:
-                args_encoded_with_types =  eth_abi.encode_single(self.input_types, args)
+                args_encoded_with_types = eth_abi.encode_single(self.input_types, args)
                 return self.fourbyte + args_encoded_with_types
             else:
                 return self.fourbyte
 
-
     def decode_data(self, output: Decodable) -> Any:
         # TODO: add error catching
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning, module="eth_abi.codec")      
+            warnings.filterwarnings(
+                "ignore", category=DeprecationWarning, module="eth_abi.codec"
+            )
             decoded_output = eth_abi.decode_single(self.output_types, output)
             return decoded_output
