@@ -9,9 +9,7 @@ GAS_LIMIT = 55_000_000
 
 
 class HandlingFunctionFailed(Exception):
-    def __init__(
-        self, handling_function: Callable, decoded_value: Any, exception: Exception
-    ):
+    def __init__(self, handling_function: Callable, decoded_value: Any, exception: Exception):
         function_source_code = inspect.getsource(handling_function)
         super().__init__(
             f"""handling_function raised an exception
@@ -55,15 +53,9 @@ class Call:
         """
         arguments = arguments if isinstance(arguments, tuple) else (arguments,)
         data_labels = data_labels if isinstance(data_labels, tuple) else (data_labels,)
-        handling_functions = (
-            handling_functions
-            if isinstance(handling_functions, tuple)
-            else (handling_functions,)
-        )
+        handling_functions = handling_functions if isinstance(handling_functions, tuple) else (handling_functions,)
         if len(data_labels) != len(handling_functions):
-            raise ReturnDataAndHandlingFunctionLengthMismatch(
-                f"{len(self.data_labels)=} != {len(handling_functions)}="
-            )
+            raise ReturnDataAndHandlingFunctionLengthMismatch(f"{len(self.data_labels)=} != {len(handling_functions)}=")
 
         self.data_labels = data_labels
         self.handling_functions = handling_functions
@@ -86,15 +78,11 @@ class Call:
         decoded_output = self.signature.decode_data(raw_bytes_output)
 
         if len(self.data_labels) != len(decoded_output):
-            raise ReturnDataAndHandlingFunctionLengthMismatch(
-                f"{len(self.data_labels)=} != {len(decoded_output)=}="
-            )
+            raise ReturnDataAndHandlingFunctionLengthMismatch(f"{len(self.data_labels)=} != {len(decoded_output)=}=")
 
         label_to_output = {}
 
-        for label, handling_function, decoded_value in zip(
-            self.data_labels, self.handling_functions, decoded_output
-        ):
+        for label, handling_function, decoded_value in zip(self.data_labels, self.handling_functions, decoded_output):
             label_to_output[label] = handling_function(decoded_value)
         return label_to_output
 

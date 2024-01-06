@@ -12,8 +12,6 @@ This is a wrapper around the Multicall series of contracts that maintains a loca
 The end user only needs to specify the Calls and blocks. Then after collecting data once, instead of externally fetching it is read locally. 
 
 
-
-
 State Id Columns:
 1. Chain id
 2. Block
@@ -24,11 +22,12 @@ State Id Columns:
 
 Data Columns:
 1. Response Success (bool)
-2. Response Data (any type)
+2. Response Data (any data type)
 
 
-Incedential goals:
+Incidental goals:
 - Refactor for clarity
-- Add robustness for API failing
+- Simplifiy EVM data collection to a single method. 
+- Add robustness for API failing. 
 - Add more examples with complicated function signatures and return data types
-- 
+- Stricter checks to not lose data in calls. (no duplicate names in calls)

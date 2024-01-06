@@ -23,20 +23,14 @@ class Multicall:
         self.batch_timeout = batch_timeout
 
         # function tryAggregate(bool requireSuccess, Call[] memory calls) public returns (Result[] memory returnData)
-        self.multicall_sig = Signature(
-            "tryAggregate(bool,(address,bytes)[])((bool,bytes)[])"
-        )
-        self.multicall_address = (
-            "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696"  # only support ETH
-        )
+        self.multicall_sig = Signature("tryAggregate(bool,(address,bytes)[])((bool,bytes)[])")
+        self.multicall_address = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696"  # only support ETH
 
         multicall_args = []
         for call in self.calls:
             single_call_calldata = call.signature.encode_data(call.arguments)
             multicall_args.append((call.target, single_call_calldata))
-        self.calldata = (
-            f"0x{self.multicall_sig.encode_data((False, tuple(multicall_args))).hex()}"
-        )
+        self.calldata = f"0x{self.multicall_sig.encode_data((False, tuple(multicall_args))).hex()}"
 
     def to_rpc_call_args(self, block_id: int | None):
         """Convert this multicall into the format required fo for a rpc node api request"""
@@ -48,9 +42,7 @@ class Multicall:
         return args
 
     def decode_outputs(self, hex_bytes_output: bytes) -> dict:
-        decoded_outputs: tuple[tuple(bool, bytes)] = self.multicall_sig.decode_data(
-            hex_bytes_output
-        )[0]
+        decoded_outputs: tuple[tuple(bool, bytes)] = self.multicall_sig.decode_data(hex_bytes_output)[0]
 
         # is decoded into a tuple of Result.
         # struct Result {
@@ -63,9 +55,7 @@ class Multicall:
         for result, call in zip(decoded_outputs, self.calls):
             success, single_function_call_bytes = result  # from struct Multicall.Result
             if success is True:
-                single_call_label_to_output = call.decode_output(
-                    single_function_call_bytes
-                )
+                single_call_label_to_output = call.decode_output(single_function_call_bytes)
                 label_to_output.update(single_call_label_to_output)
 
         return label_to_output
