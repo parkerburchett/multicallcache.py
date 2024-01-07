@@ -64,6 +64,7 @@ class Call:
         self.signature = Signature(signature)
         self.arguments = arguments
         self.calldata = self.signature.encode_data(self.arguments)
+        self.chain_id: 1
 
     def to_rpc_call_args(self, block_id: int | str):
         """Convert this call into the format to send to a rpc node api request"""
@@ -96,3 +97,6 @@ class Call:
         raw_bytes_output = w3.eth.call(*rpc_args)
         label_to_output = self.decode_output(raw_bytes_output)
         return label_to_output
+    
+    def __hash__(self) -> str:
+        return hash(str(self.arguments) + self.signature.signature + self.target + str(self.chain_id))
