@@ -99,6 +99,7 @@ class Call:
         return label_to_output
 
     def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, Any]:
+        # not optimized for speed, only use for testing that your calls work
         rpc_args = self.to_rpc_call_args(block_id)
         raw_bytes_output = w3.eth.call(*rpc_args)
         label_to_output = self.decode_output(raw_bytes_output)
