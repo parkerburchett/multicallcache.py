@@ -4,6 +4,14 @@ from web3 import Web3
 from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
 from multicall.signature import Signature
 
+class CallRawData:
+
+    def __init__(self, call: Call, success: bool, response_bytes: bytes) -> None:
+        self.call = call
+        self.success = success
+        self.response_bytes = response_bytes
+
+
 
 class Multicall:
     def __init__(
@@ -48,31 +56,34 @@ class Multicall:
         ]
         return args
 
-    def decode_outputs(self, hex_bytes_output: bytes) -> dict:
-        decoded_outputs: tuple[tuple(bool, bytes)] = self.multicall_sig.decode_data(hex_bytes_output)[0]
-
-        # decoded_outputs is decoded into a tuple of Results.
-        # struct Result {
-        #     bool success;
-        #     bytes returnData;
-        # }
-
+    def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, any]:
+        call_raw_data: list[CallRawData] = self._fetch_raw_data(w3, block_id)
+        label_to_output: dict[str, any] = self._handle_raw_data(call_raw_data)
+        return label_to_output
+    
+    
+    def _handle_raw_data(self, call_raw_data:list[CallRawData]) -> dict[str, any]:
         label_to_output = {}
-
-        for result, call in zip(decoded_outputs, self.calls):
-            success, single_function_return_data_bytes = result
-
-            if success is True:
-                single_call_label_to_output = call.decode_output(single_function_return_data_bytes)
+        for data in call_raw_data:
+            if data.success is True:
+                single_call_label_to_output = data.call.decode_output(data.response_bytes)
                 label_to_output.update(single_call_label_to_output)
             else:
-                for name in call.data_labels:
+                for name in data.call.data_labels:
                     label_to_output[name] = CALL_FAILED_REVERT_MESSAGE
 
         return label_to_output
 
-    def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, any]:
+    
+    def _fetch_raw_data(self, w3: Web3, block_id: int) -> list[CallRawData]:
         rpc_args = self.to_rpc_call_args(block_id)
         raw_bytes_output = w3.eth.call(*rpc_args)
-        label_to_output = self.decode_outputs(raw_bytes_output)
-        return label_to_output
+        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+        call_raw_data = []
+        for result, call in zip(decoded_outputs, self.calls):
+            success, single_function_return_data_bytes = result
+            call_raw_data.append(CallRawData(call, success, single_function_return_data_bytes))
+        return call_raw_data
+
+
+    

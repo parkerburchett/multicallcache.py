@@ -10,74 +10,67 @@ from time import sleep
 
 
 load_dotenv()
-w3 = Web3(Web3.HTTPProvider(os.environ.get('ALCHEMY_URL')))
+w3 = Web3(Web3.HTTPProvider(os.environ.get("ALCHEMY_URL")))
 
 
-USDC_TOKEN = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
-MKR_WHALE = '0xdb33dfd3d61308c33c63209845dad3e6bfb2c674'
-MKR_FISH = '0x2dfcedcb401557354d0cf174876ab17bfd6f4efd'
+USDC_TOKEN = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+MKR_WHALE = "0xdb33dfd3d61308c33c63209845dad3e6bfb2c674"
+MKR_FISH = "0x2dfcedcb401557354d0cf174876ab17bfd6f4efd"
 
 
 def from_weth(success, value):
     if success:
         return value / 1e18
 
-def build_balance_of_calls(n:int =10):
-    weth = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+
+def build_balance_of_calls(n: int = 10):
+    weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
     # df has 200k events
-    df = pd.read_csv('/home/parker/Documents/GitHub/multicallcache.py/many_weth_transfers.csv')
-    addresses = df['to'].unique()[:n]
+    df = pd.read_csv("/home/parker/Documents/GitHub/multicallcache.py/many_weth_transfers.csv")
+    addresses = df["to"].unique()[:n]
 
     calls = []
     for i, address in enumerate(addresses):
         c = Call(
             weth,
             ["balanceOf(address)(uint256)", address],
-            [(f'{i=}', from_weth)],
+            [(f"{i=}", from_weth)],
         )
         calls.append(c)
-    
+
     return calls
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     calls = build_balance_of_calls(n=10)
 
     for _ in range(10):
         multi = MulticallV2(
             calls=calls,
             block_id=16_000_000 + np.random.randint(1, 1_000_000),
-            w3=w3, 
-            db_path='cache_db.sqlite',
+            w3=w3,
+            db_path="cache_db.sqlite",
             require_success=False,
             max_concurrent_requests=1,
-            n_calls_per_batch=10
+            n_calls_per_batch=10,
         )
 
-        data = multi.__call__() # do I like this
+        data = multi.__call__()  # do I like this
         sleep(3)
 
     pass
 
-
-
-
-    # the only params I want to expose are 
+    # the only params I want to expose are
 
     # call_batch_size, default 50
     # num concurrent requests default 1
 
     # first break in to chunks of 50 calls
 
-
     ### 1000 Balance Of calls with maybe data take 10-20s seconds each
     # That succeeds
     # 100 calls each take 1-2 seconds each
     # 500 calls each take 5-15
-
-
-
-
 
 
 # MCD_VAT = '0x35d1b3f3d7966a1dfe207aa4514c12a259a0492b'
@@ -185,9 +178,6 @@ if __name__ == '__main__':
 # multi = Multicall(calls[:3], _w3=w3, block_id=18_000_000)
 
 
-
-
-
 # def fetch_data():
 #     a_call = Call(MCD_GOV, ['totalSupply()(uint256)'], [['mkr_supply', from_wad]], _w3=w3, block_id=18_000_000)
 #     response = a_call()
@@ -258,7 +248,6 @@ if __name__ == '__main__':
 # def main():
 #     data = fetch_data()
 #     # pretty_print(data)
-
 
 
 # if __name__ == "__main__":

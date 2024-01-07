@@ -1,5 +1,6 @@
 from sqlitedict import SqliteDict
-from multicall import Call
+
+
 
 CACHE_PATH = "cache_db.sqlite"
 db = SqliteDict(CACHE_PATH)
@@ -7,6 +8,11 @@ db = SqliteDict(CACHE_PATH)
 ### Schema
 """
 
+
+SELECT *
+FROM your_table
+WHERE block IN (SELECT DISTINCT block FROM blocks_to_find)
+AND call_id IN (SELECT DISTINCT call_id FROM call_ids_to_find);
 bytes are pickle
 
 columns:

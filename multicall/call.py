@@ -1,13 +1,16 @@
+from typing import Any, Callable, Tuple
+import inspect
+
 from eth_utils import to_checksum_address
 from web3 import Web3
-from typing import Any, Callable, Tuple
 from multicall.signature import Signature
-import inspect
+
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
 CALL_FAILED_REVERT_MESSAGE = "reverted_call_failed"
 NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
+
 
 
 class HandlingFunctionFailed(Exception):
@@ -64,7 +67,7 @@ class Call:
         self.signature = Signature(signature)
         self.arguments = arguments
         self.calldata = self.signature.encode_data(self.arguments)
-        self.chain_id: 1
+        self.chain_id = "1"
 
     def to_rpc_call_args(self, block_id: int | str):
         """Convert this call into the format to send to a rpc node api request"""
@@ -76,8 +79,9 @@ class Call:
         return args
 
     def decode_output(self, raw_bytes_output: bytes) -> dict[str, Any]:
-        label_to_output = {}
+
         if len(raw_bytes_output) == 0:
+            label_to_output = {}
             # calls to addresses that don't have any code at that block return HexBytes('0x')
             for label in self.data_labels:
                 label_to_output[label] = NOT_A_CONTRACT_REVERT_MESSAGE
@@ -88,6 +92,8 @@ class Call:
         if len(self.data_labels) != len(decoded_output):
             raise ReturnDataAndHandlingFunctionLengthMismatch(f"{len(self.data_labels)=} != {len(decoded_output)=}=")
 
+        label_to_output = {}
+
         for label, handling_function, decoded_value in zip(self.data_labels, self.handling_functions, decoded_output):
             label_to_output[label] = handling_function(decoded_value)
         return label_to_output
@@ -97,6 +103,10 @@ class Call:
         raw_bytes_output = w3.eth.call(*rpc_args)
         label_to_output = self.decode_output(raw_bytes_output)
         return label_to_output
-    
-    def __hash__(self) -> str:
-        return hash(str(self.arguments) + self.signature.signature + self.target + str(self.chain_id))
+
+    def to_id(self) -> str:
+        # good enough until we run into a problem
+        call_id = self.chain_id + " " + self.target + " " + self.signature.signature + " " + str(self.arguments)
+        return call_id
+
+
