@@ -41,10 +41,9 @@ class Call:
         self,
         target: str,
         signature: str,
-        arguments: Tuple[str],  # not certain if need
+        arguments: tuple[str],
         data_labels: tuple[str] | str,
         handling_functions: Tuple[Callable] | Callable,
-        w3: Web3,
     ) -> None:
         """
         target: the address that you want to make a funciton call on.
@@ -64,7 +63,6 @@ class Call:
         self.target = to_checksum_address(target)
         self.signature = Signature(signature)
         self.arguments = arguments
-        self.w3 = w3
         self.calldata = self.signature.encode_data(self.arguments)
 
     def to_rpc_call_args(self, block_id: int | str):
@@ -93,14 +91,8 @@ class Call:
             label_to_output[label] = handling_function(decoded_value)
         return label_to_output
 
-    def __call__(self, block_id: int | str = "latest") -> dict[str, Any]:
-        # TODO:, fail if attempting before the multicallV2 block was deployed
-        # TODO: Maybe mock deploy it with the alchemy modify state before call)
-        # TODO: wrap in error catching for rate limiting and or archive node failures
-        # TODO: this has the same pattern as multicall can we unifiy them with inheritance
-
-        # I think i am comfrotable with this failing
+    def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, Any]:
         rpc_args = self.to_rpc_call_args(block_id)
-        raw_bytes_output = self.w3.eth.call(*rpc_args)
+        raw_bytes_output = w3.eth.call(*rpc_args)
         label_to_output = self.decode_output(raw_bytes_output)
         return label_to_output

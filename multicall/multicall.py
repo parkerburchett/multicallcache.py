@@ -9,19 +9,10 @@ class Multicall:
     def __init__(
         self,
         calls: list[Call],
-        w3: Web3,
-        max_concurrent_requests: int = 1,
-        n_calls_per_batch: int = 50,
-        batch_timeout: int = 300,
     ):
         if len(calls) == 0:
             raise ValueError("Must supply more than 0 calls")
         self.calls = calls
-        self.w3 = w3
-        self.max_concurrent_requests = max_concurrent_requests
-        self.n_calls_per_batch = n_calls_per_batch
-        self.batch_timeout = batch_timeout
-
         # function tryAggregate(bool requireSuccess, Call[] memory calls) public returns (Result[] memory returnData)
         self.multicall_sig = Signature("tryAggregate(bool,(address,bytes)[])((bool,bytes)[])")
         self.multicall_address = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696"  # only support ETH
@@ -69,10 +60,10 @@ class Multicall:
         label_to_output = {}
 
         for result, call in zip(decoded_outputs, self.calls):
-            success, single_function_call_bytes = result  # from struct Multicall.Result
+            success, single_function_return_data_bytes = result
 
             if success is True:
-                single_call_label_to_output = call.decode_output(single_function_call_bytes)
+                single_call_label_to_output = call.decode_output(single_function_return_data_bytes)
                 label_to_output.update(single_call_label_to_output)
             else:
                 for name in call.data_labels:
@@ -80,8 +71,8 @@ class Multicall:
 
         return label_to_output
 
-    def __call__(self, block_id: int | None) -> dict[str, any]:
+    def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, any]:
         rpc_args = self.to_rpc_call_args(block_id)
-        raw_bytes_output = self.w3.eth.call(*rpc_args)
+        raw_bytes_output = w3.eth.call(*rpc_args)
         label_to_output = self.decode_outputs(raw_bytes_output)
         return label_to_output

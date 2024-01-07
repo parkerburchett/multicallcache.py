@@ -27,11 +27,24 @@ def test_multicall():
         (cbETH_holder),
         "balanceOf",
         identify_function,
-        w3,
     )
-    name_call = Call(cbETH, "name()(string)", (), "name", identify_function, w3)
-    total_supply_call = Call(cbETH, "totalSupply()(uint256)", (), "totalSupply", identify_function, w3)
-    multicall_single_return_values = Multicall([balance_of_call, name_call, total_supply_call], w3)
+    name_call = Call(
+        cbETH,
+        "name()(string)",
+        (),
+        "name",
+        identify_function,
+    )
+    total_supply_call = Call(
+        cbETH,
+        "totalSupply()(uint256)",
+        (),
+        "totalSupply",
+        identify_function,
+    )
+    multicall_single_return_values = Multicall(
+        [balance_of_call, name_call, total_supply_call],
+    )
 
     single_return_values_expected_data = {
         "balanceOf": 32431674561658258136000,
@@ -40,7 +53,7 @@ def test_multicall():
     }
 
     assert (
-        multicall_single_return_values(BLOCK_TO_CHECK) == single_return_values_expected_data
+        multicall_single_return_values(w3, BLOCK_TO_CHECK) == single_return_values_expected_data
     ), "Multicall, multiple calls, each returning a single value failed"
 
     ################################# Functions that return multiple values #################################
@@ -54,7 +67,6 @@ def test_multicall():
         (),
         ("paused", "pauseWindowEndTime", "bufferPeriodEndTime"),
         (identify_function, identify_function, identify_function),
-        w3,
     )
 
     vault_get_pool_tokens_call = Call(
@@ -63,7 +75,6 @@ def test_multicall():
         pool_id,
         ("tokens", "balances", "lastChangeBlock"),
         (identify_function, identify_function, identify_function),
-        w3,
     )
 
     many_return_values_expected_data = {
@@ -78,28 +89,29 @@ def test_multicall():
         "lastChangeBlock": 17999794,
     }
 
-    multicall_with_many_return_values = Multicall(
-        [vault_get_paused_state_call, vault_get_pool_tokens_call],
-        w3,
-    )
+    multicall_with_many_return_values = Multicall([vault_get_paused_state_call, vault_get_pool_tokens_call])
 
     assert (
-        multicall_with_many_return_values(BLOCK_TO_CHECK) == many_return_values_expected_data
+        multicall_with_many_return_values(w3, BLOCK_TO_CHECK) == many_return_values_expected_data
     ), "multicall_many_return_values failed"
 
     multicall_with_single_and_multiple = Multicall(
-        [vault_get_paused_state_call, vault_get_pool_tokens_call, balance_of_call, name_call, total_supply_call], w3
+        [vault_get_paused_state_call, vault_get_pool_tokens_call, balance_of_call, name_call, total_supply_call]
     )
 
     expected_values_combination = {**many_return_values_expected_data, **single_return_values_expected_data}
 
     assert (
-        multicall_with_single_and_multiple(BLOCK_TO_CHECK) == expected_values_combination
+        multicall_with_single_and_multiple(w3, BLOCK_TO_CHECK) == expected_values_combination
     ), "multicall_with_single_and_multiple failed"
 
     ################################# Functions that don't exist #################################
     bad_function_signature_call = Call(
-        cbETH, "thisFunctionDoesNotExist()(uint256)", (), "thisFunctionDoesNotExist", identify_function, w3
+        cbETH,
+        "thisFunctionDoesNotExist()(uint256)",
+        (),
+        "thisFunctionDoesNotExist",
+        identify_function,
     )
 
     multicall_with_bad_function_signature_call = Multicall(
@@ -111,19 +123,22 @@ def test_multicall():
             total_supply_call,
             bad_function_signature_call,
         ],
-        w3,
     )
 
     expected_values_combination["thisFunctionDoesNotExist"] = CALL_FAILED_REVERT_MESSAGE
 
     assert (
-        multicall_with_bad_function_signature_call(BLOCK_TO_CHECK) == expected_values_combination
+        multicall_with_bad_function_signature_call(w3, BLOCK_TO_CHECK) == expected_values_combination
     ), "multicall_single_and_multiple failed"
 
     address_without_code = "0x0000000000000000000000000000000000000000"
 
     call_to_address_without_code = Call(
-        address_without_code, "thisFunctionDoesNotExist()(uint256)", (), "AddressWithoutCode", identify_function, w3
+        address_without_code,
+        "thisFunctionDoesNotExist()(uint256)",
+        (),
+        "AddressWithoutCode",
+        identify_function,
     )
 
     multicall_with_call_to_address_without_code = Multicall(
@@ -135,12 +150,14 @@ def test_multicall():
             total_supply_call,
             bad_function_signature_call,
             call_to_address_without_code,
-        ],
-        w3,
+        ]
     )
 
     expected_values_combination["AddressWithoutCode"] = NOT_A_CONTRACT_REVERT_MESSAGE
 
     assert (
-        multicall_with_call_to_address_without_code(BLOCK_TO_CHECK) == expected_values_combination
+        multicall_with_call_to_address_without_code(w3, BLOCK_TO_CHECK) == expected_values_combination
     ), "multicall_with_call_to_address_without_code failed"
+
+
+test_multicall()

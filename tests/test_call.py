@@ -26,15 +26,16 @@ def test_single_return_value():
         (cbETH_holder),
         "balanceOf",
         identify_function,
-        w3,
     )
-    assert balance_of_call(BLOCK_TO_CHECK) == {"balanceOf": 32431674561658258136000}, "balance_of_call failed"
+    assert balance_of_call(w3, BLOCK_TO_CHECK) == {"balanceOf": 32431674561658258136000}, "balance_of_call failed"
 
-    name_call = Call(cbETH, "name()(string)", (), "name", identify_function, w3)
-    assert name_call() == {"name": "Coinbase Wrapped Staked ETH"}, "name_call failed"
+    name_call = Call(cbETH, "name()(string)", (), "name", identify_function)
+    assert name_call(w3, BLOCK_TO_CHECK) == {"name": "Coinbase Wrapped Staked ETH"}, "name_call failed"
 
-    total_supply_call = Call(cbETH, "totalSupply()(uint256)", (), "totalSupply", identify_function, w3)
-    assert total_supply_call(BLOCK_TO_CHECK) == {"totalSupply": 1224558113282286488129522}, "total_supply_call failed"
+    total_supply_call = Call(cbETH, "totalSupply()(uint256)", (), "totalSupply", identify_function)
+    assert total_supply_call(w3, BLOCK_TO_CHECK) == {
+        "totalSupply": 1224558113282286488129522
+    }, "total_supply_call failed"
 
 
 def test_multiple_return_values():
@@ -46,14 +47,13 @@ def test_multiple_return_values():
         (),
         ("paused", "pauseWindowEndTime", "bufferPeriodEndTime"),
         (identify_function, identify_function, identify_function),
-        w3,
     )
     expected = {
         "paused": False,
         "pauseWindowEndTime": 1626633407,
         "bufferPeriodEndTime": 1629225407,
     }
-    assert vault_get_paused_state(BLOCK_TO_CHECK) == expected, "vault_get_paused_state failed"
+    assert vault_get_paused_state(w3, BLOCK_TO_CHECK) == expected, "vault_get_paused_state failed"
 
     pool_id = bytes.fromhex("1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112")
     vault_get_pool_tokens = Call(
@@ -62,7 +62,6 @@ def test_multiple_return_values():
         pool_id,
         ("tokens", "balances", "lastChangeBlock"),
         (identify_function, identify_function, identify_function),
-        w3,
     )
 
     expected = {
@@ -73,17 +72,17 @@ def test_multiple_return_values():
         "balances": (10218807022150565266010, 12892757262517014259928),
         "lastChangeBlock": 17999794,
     }
-    assert vault_get_pool_tokens(BLOCK_TO_CHECK) == expected, "vault_get_pool_tokens failed"
+    assert vault_get_pool_tokens(w3, BLOCK_TO_CHECK) == expected, "vault_get_pool_tokens failed"
 
 
 def test_non_existent_function_call():
     bad_function_signature_call = Call(
-        cbETH, "thisFunctionDoesNotExist()(uint256)", (), "thisFunctionDoesNotExist", identify_function, w3
+        cbETH, "thisFunctionDoesNotExist()(uint256)", (), "thisFunctionDoesNotExist", identify_function
     )
     with pytest.raises(web3.exceptions.ContractLogicError):
         # we only know that thisFunctionDoesNotExist() doesn't exist when we try to call it.
         # so it succeeded top build but reverts on the call
-        bad_function_signature_call()
+        bad_function_signature_call(w3, BLOCK_TO_CHECK)
 
 
 def test_call_to_an_address_without_code():
@@ -95,9 +94,10 @@ def test_call_to_an_address_without_code():
         (),
         "thisFunctionDoesNotExist",
         identify_function,
-        w3,
     )
-    assert call_to_address_without_code(BLOCK_TO_CHECK == {"thisFunctionDoesNotExist": NOT_A_CONTRACT_REVERT_MESSAGE})
+    assert call_to_address_without_code(w3, BLOCK_TO_CHECK) == {
+        "thisFunctionDoesNotExist": NOT_A_CONTRACT_REVERT_MESSAGE
+    }, "failed Call to address without code"
 
 
 def test_malformed_calls():
@@ -110,11 +110,10 @@ def test_malformed_calls():
             (cbETH),
             "totalSupply",
             identify_function,
-            w3,
         )
 
     with pytest.raises(Exception):
-        Call(cbETH, "balanceOf(address)(uint256)", (), "balanceOf", identify_function, w3)
+        Call(cbETH, "balanceOf(address)(uint256)", (), "balanceOf", identify_function)
 
     with pytest.raises(Exception):
-        Call(cbETH, "balanceOf(address)(uint256)", (int(100)), "balanceOf", identify_function, w3)
+        Call(cbETH, "balanceOf(address)(uint256)", (int(100)), "balanceOf", identify_function)
