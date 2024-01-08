@@ -9,7 +9,7 @@ class CallRawData:
     def __init__(self, call: Call, success: bool, response_bytes: bytes, block:int) -> None:
         self.call = call
         self.success = success
-        self.response_bytes = response_bytes,
+        self.response_bytes = response_bytes
         self.block = block
 
 

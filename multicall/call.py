@@ -109,5 +109,3 @@ class Call:
         # good enough until we run into a problem
         call_id = self.chain_id + " " + self.target + " " + self.signature.signature + " " + str(self.arguments)
         return call_id
-
-
