@@ -18,12 +18,15 @@ class Multicall:
         self,
         calls: list[Call],
     ):
+        # todo include checks that each processing function starts with a bool success
+        # include check that "block" keyword is reserved
         if len(calls) == 0:
             raise ValueError("Must supply more than 0 calls")
         self.calls = calls
+        # what multicall function we are using
         # function tryAggregate(bool requireSuccess, Call[] memory calls) public returns (Result[] memory returnData)
         self.multicall_sig = Signature("tryAggregate(bool,(address,bytes)[])((bool,bytes)[])")
-        self.multicall_address = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696"  # only support ETH
+        self.multicall_address = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696"  # only support Ethereum mainnet
 
         multicall_args = []
 
