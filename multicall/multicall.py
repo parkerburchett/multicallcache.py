@@ -4,14 +4,13 @@ from web3 import Web3
 from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
 from multicall.signature import Signature
 
-class CallRawData:
 
-    def __init__(self, call: Call, success: bool, response_bytes: bytes, block:int) -> None:
+class CallRawData:
+    def __init__(self, call: Call, success: bool, response_bytes: bytes, block: int) -> None:
         self.call = call
         self.success = success
         self.response_bytes = response_bytes
         self.block = block
-
 
 
 class Multicall:
@@ -58,12 +57,11 @@ class Multicall:
         return args
 
     def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, any]:
-        call_raw_data: list[CallRawData] = self.fetch_raw_data(w3, block_id)
+        call_raw_data: list[CallRawData] = self._fetch_raw_data(w3, block_id)
         label_to_output: dict[str, any] = self._handle_raw_data(call_raw_data)
         return label_to_output
-    
-    
-    def _handle_raw_data(self, call_raw_data:list[CallRawData]) -> dict[str, any]:
+
+    def _handle_raw_data(self, call_raw_data: list[CallRawData]) -> dict[str, any]:
         label_to_output = {}
         for data in call_raw_data:
             if data.success is True:
@@ -75,8 +73,7 @@ class Multicall:
 
         return label_to_output
 
-    
-    def fetch_raw_data(self, w3: Web3, block_id: int) -> list[CallRawData]:
+    def _fetch_raw_data(self, w3: Web3, block_id: int) -> list[CallRawData]:
         rpc_args = self.to_rpc_call_args(block_id)
         raw_bytes_output = w3.eth.call(*rpc_args)
         decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
@@ -86,6 +83,3 @@ class Multicall:
             # decide on if using latest. If latest then don't save it
             call_raw_data.append(CallRawData(call, success, single_function_return_data_bytes, block_id))
         return call_raw_data
-
-
-    

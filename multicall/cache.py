@@ -1,7 +1,6 @@
 from sqlitedict import SqliteDict
 
 
-
 CACHE_PATH = "cache_db.sqlite"
 db = SqliteDict(CACHE_PATH)
 

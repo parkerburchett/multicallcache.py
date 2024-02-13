@@ -1,6 +1,4 @@
-from decimal import Decimal
-from web3.datastructures import AttributeDict
-from multicall import Call, Multicall, MulticallV2
+from multicall import Call, MulticallV2
 from dotenv import load_dotenv
 import os
 from web3 import Web3

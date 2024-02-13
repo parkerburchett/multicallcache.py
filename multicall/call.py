@@ -12,7 +12,6 @@ CALL_FAILED_REVERT_MESSAGE = "reverted_call_failed"
 NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
 
 
-
 class HandlingFunctionFailed(Exception):
     def __init__(self, handling_function: Callable, decoded_value: Any, exception: Exception):
         function_source_code = inspect.getsource(handling_function)
