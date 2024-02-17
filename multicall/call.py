@@ -3,8 +3,9 @@ import inspect
 
 from eth_utils import to_checksum_address
 from web3 import Web3
-from multicall.signature import Signature
 
+from multicall.signature import Signature
+from multicall.rpc_call import rpc_eth_call
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
@@ -78,6 +79,7 @@ class Call:
         return args
 
     def decode_output(self, raw_bytes_output: bytes) -> dict[str, Any]:
+        """applies the handling function and converts raw_bytes_output to a dict of pythonic objects"""
 
         if len(raw_bytes_output) == 0:
             label_to_output = {}

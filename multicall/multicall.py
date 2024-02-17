@@ -1,8 +1,12 @@
 from web3 import Web3
+import asyncio
+import aiohttp
+from aiolimiter import AsyncLimiter
 
 
 from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
 from multicall.signature import Signature
+from multicall.rpc_call import sync_rpc_eth_call, async_rpc_eth_call
 
 
 class CallRawData:
@@ -18,12 +22,9 @@ class Multicall:
         self,
         calls: list[Call],
     ):
-        # todo include checks that each processing function starts with a bool success
-        # include check that "block" keyword is reserved
         if len(calls) == 0:
             raise ValueError("Must supply more than 0 calls")
         self.calls = calls
-        # what multicall function we are using
         # function tryAggregate(bool requireSuccess, Call[] memory calls) public returns (Result[] memory returnData)
         self.multicall_sig = Signature("tryAggregate(bool,(address,bytes)[])((bool,bytes)[])")
         self.multicall_address = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696"  # only support Ethereum mainnet
@@ -39,6 +40,12 @@ class Multicall:
 
         self.calldata = f"0x{self.multicall_sig.encode_data((False, tuple(multicall_args))).hex()}"
 
+    def _ensure_block_keyword_is_not_in_multicall(self, calls: list[Call]):
+        for call in calls:
+            for label in call.data_labels:
+                if label == "block":
+                    raise ValueError("Cannot use `block` keyword is prohibited")
+
     def _ensure_no_duplicate_names_in_calls(self, calls: list[Call]):
         found_data_labels = set()
 
@@ -50,19 +57,42 @@ class Multicall:
                 else:
                     found_data_labels.add(label)
 
-    def to_rpc_call_args(self, block_id: int | None):
+    def to_rpc_call_args(self, block: int):
         """Convert this multicall into the format required fo for a rpc node api request"""
-        block_id_for_rpc_call = hex(block_id) if isinstance(block_id, int) else "latest"
-        args = [
-            {"to": self.multicall_address, "data": self.calldata, "gas": GAS_LIMIT},
-            block_id_for_rpc_call,
-        ]
-        return args
 
-    def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, any]:
-        call_raw_data: list[CallRawData] = self._fetch_raw_data(w3, block_id)
-        label_to_output: dict[str, any] = self._handle_raw_data(call_raw_data)
+        if not isinstance(block, int):
+            raise ValueError("block must be an int", type(block), block)
+        rpc_args = [
+            {"to": self.multicall_address, "data": self.calldata, "gas": GAS_LIMIT},
+            hex(block),
+        ]
+        return rpc_args
+
+    def __call__(self, w3: Web3, block: int) -> list[CallRawData]:
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
+        label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
         return label_to_output
+
+    async def async_call(self, w3: Web3, block: int, session: aiohttp.ClientSession, rate_limiter: AsyncLimiter):
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
+        label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
+        return label_to_output
+
+    def process_raw_bytes_output(self, raw_bytes_output, block):
+        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+        call_raw_data = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
+        label_to_output = self._handle_raw_data(call_raw_data)
+        label_to_output["block"] = block
+        return label_to_output
+
+    def _decoded_outputs_to_call_raw_data(self, decoded_outputs, block):
+        call_raw_data = []
+        for result, call in zip(decoded_outputs, self.calls):
+            success, single_function_return_data_bytes = result
+            call_raw_data.append(CallRawData(call, success, single_function_return_data_bytes, block))
+        return call_raw_data
 
     def _handle_raw_data(self, call_raw_data: list[CallRawData]) -> dict[str, any]:
         label_to_output = {}
@@ -75,14 +105,3 @@ class Multicall:
                     label_to_output[name] = CALL_FAILED_REVERT_MESSAGE
 
         return label_to_output
-
-    def _fetch_raw_data(self, w3: Web3, block_id: int) -> list[CallRawData]:
-        rpc_args = self.to_rpc_call_args(block_id)
-        raw_bytes_output = w3.eth.call(*rpc_args)
-        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
-        call_raw_data = []
-        for result, call in zip(decoded_outputs, self.calls):
-            success, single_function_return_data_bytes = result
-            # decide on if using latest. If latest then don't save it
-            call_raw_data.append(CallRawData(call, success, single_function_return_data_bytes, block_id))
-        return call_raw_data
