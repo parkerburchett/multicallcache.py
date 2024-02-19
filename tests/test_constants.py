@@ -13,8 +13,8 @@ weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 
 
-def identity_function(data: any) -> any:
-    return data
+def to_str(data: any) -> str:
+    return str(data)
 
 
 weth_bal = Call(
@@ -22,7 +22,7 @@ weth_bal = Call(
     "balanceOf(address)(uint256)",
     (uniswap_v3_usdc_weth_pool),
     "weth_bal",
-    identity_function,
+    to_str,
 )
 
 usdc_bal = Call(
@@ -30,7 +30,7 @@ usdc_bal = Call(
     "balanceOf(address)(uint256)",
     (uniswap_v3_usdc_weth_pool),
     "usdc_bal",
-    identity_function,
+    to_str,
 )
 
 invalid_function = Call(
@@ -38,7 +38,7 @@ invalid_function = Call(
     "functionDoesNotExist()(uint256)",
     (),
     "functionDoesNotExist",
-    identity_function,
+    to_str,
 )
 
 target_has_no_code = Call(
@@ -46,5 +46,5 @@ target_has_no_code = Call(
     "functionDoesNotExist()(uint256)",
     (),
     "notAContract",
-    identity_function,
+    to_str,
 )
