@@ -5,7 +5,6 @@ from eth_utils import to_checksum_address
 from web3 import Web3
 
 from multicall.signature import Signature
-from multicall.rpc_call import rpc_eth_call
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
@@ -73,7 +72,7 @@ class Call:
         """Convert this call into the format to send to a rpc node api request"""
         block_id_for_rpc_call = hex(block_id) if isinstance(block_id, int) else "latest"
         args = [
-            {"to": self.target, "data": self.calldata, "gas": GAS_LIMIT},
+            {"to": self.target, "data": self.calldata, "gas": hex(GAS_LIMIT)}, # if using w3.eth.call(*rpc_args) , don't need ot hex(gas limit)
             block_id_for_rpc_call,
         ]
         return args

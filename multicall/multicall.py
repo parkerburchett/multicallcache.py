@@ -1,5 +1,4 @@
 from web3 import Web3
-import asyncio
 import aiohttp
 from aiolimiter import AsyncLimiter
 
@@ -44,7 +43,7 @@ class Multicall:
         for call in calls:
             for label in call.data_labels:
                 if label == "block":
-                    raise ValueError("Cannot use `block` keyword is prohibited")
+                    raise ValueError("Cannot use `block` as a label because it is prohibited")
 
     def _ensure_no_duplicate_names_in_calls(self, calls: list[Call]):
         found_data_labels = set()
@@ -63,10 +62,18 @@ class Multicall:
         if not isinstance(block, int):
             raise ValueError("block must be an int", type(block), block)
         rpc_args = [
-            {"to": self.multicall_address, "data": self.calldata, "gas": GAS_LIMIT},
+            {"to": self.multicall_address, "data": self.calldata, "gas": hex(GAS_LIMIT)},
             hex(block),
         ]
         return rpc_args
+    
+
+    def call_using_web3_py(self, w3: Web3, block: int) -> list[CallRawData]:
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = w3.eth.call(*rpc_args)
+        label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
+        return label_to_output
+
 
     def __call__(self, w3: Web3, block: int) -> list[CallRawData]:
         rpc_args = self.to_rpc_call_args(block)

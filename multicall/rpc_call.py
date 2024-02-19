@@ -10,7 +10,7 @@ async def async_rpc_eth_call(w3: HTTPProvider, rpc_args, session: aiohttp.Client
     async with rate_limiter:
         async with session.post(
             w3.provider.endpoint_uri,
-            headers={"Content-Type": "application/json"},
+            headers={"content-type": "application/json"},
             data=json.dumps(
                 {
                     "params": rpc_args,
@@ -20,6 +20,10 @@ async def async_rpc_eth_call(w3: HTTPProvider, rpc_args, session: aiohttp.Client
                 }
             ),
         ) as response:
+            # currently broken for an unknwon reason
+            response.raise_for_status()
+
+            pass
             assert response.status == 200, RuntimeError(f"Network Error: {response}")
             data = await response.json()
             return bytes.fromhex(data["result"][2:])
