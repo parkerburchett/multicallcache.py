@@ -66,14 +66,12 @@ class Multicall:
             hex(block),
         ]
         return rpc_args
-    
 
     def call_using_web3_py(self, w3: Web3, block: int) -> list[CallRawData]:
         rpc_args = self.to_rpc_call_args(block)
         raw_bytes_output = w3.eth.call(*rpc_args)
         label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
         return label_to_output
-
 
     def __call__(self, w3: Web3, block: int) -> list[CallRawData]:
         rpc_args = self.to_rpc_call_args(block)

@@ -72,7 +72,11 @@ class Call:
         """Convert this call into the format to send to a rpc node api request"""
         block_id_for_rpc_call = hex(block_id) if isinstance(block_id, int) else "latest"
         args = [
-            {"to": self.target, "data": self.calldata, "gas": hex(GAS_LIMIT)}, # if using w3.eth.call(*rpc_args) , don't need ot hex(gas limit)
+            {
+                "to": self.target,
+                "data": self.calldata,
+                "gas": hex(GAS_LIMIT),
+            },  # if using w3.eth.call(*rpc_args) , don't need ot hex(gas limit)
             block_id_for_rpc_call,
         ]
         return args

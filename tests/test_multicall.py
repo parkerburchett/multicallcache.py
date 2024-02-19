@@ -50,13 +50,11 @@ def test_multicall():
         "balanceOf": 32431674561658258136000,
         "name": "Coinbase Wrapped Staked ETH",
         "totalSupply": 1224558113282286488129522,
-        'block': BLOCK_TO_CHECK
+        "block": BLOCK_TO_CHECK,
     }
     data = multicall_single_return_values(w3, BLOCK_TO_CHECK)
 
-    assert (
-        data == single_return_values_expected_data
-    ), "Multicall, multiple calls, each returning a single value failed"
+    assert data == single_return_values_expected_data, "Multicall, multiple calls, each returning a single value failed"
 
     ################################# Functions that return multiple values #################################
 
@@ -89,7 +87,7 @@ def test_multicall():
         ),
         "balances": (10218807022150565266010, 12892757262517014259928),
         "lastChangeBlock": 17999794,
-        'block': BLOCK_TO_CHECK
+        "block": BLOCK_TO_CHECK,
     }
 
     multicall_with_many_return_values = Multicall([vault_get_paused_state_call, vault_get_pool_tokens_call])
