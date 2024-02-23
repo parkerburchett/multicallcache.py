@@ -1,0 +1,3 @@
+weth_bal,usdc_bal,functionDoesNotExist,notAContract,block
+91715839482623453229082,63493113713498,reverted_call_failed,reverted_not_a_contract,18000000
+93212525094773580230338,61058320389633,reverted_call_failed,reverted_not_a_contract,18001000

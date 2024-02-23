@@ -1,8 +1,10 @@
+from typing import Any, Callable, Tuple
+import inspect
+
 from eth_utils import to_checksum_address
 from web3 import Web3
-from typing import Any, Callable, Tuple
+
 from multicall.signature import Signature
-import inspect
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
@@ -41,10 +43,9 @@ class Call:
         self,
         target: str,
         signature: str,
-        arguments: Tuple[str],  # not certain if need
+        arguments: tuple[str],
         data_labels: tuple[str] | str,
         handling_functions: Tuple[Callable] | Callable,
-        w3: Web3,
     ) -> None:
         """
         target: the address that you want to make a funciton call on.
@@ -64,21 +65,27 @@ class Call:
         self.target = to_checksum_address(target)
         self.signature = Signature(signature)
         self.arguments = arguments
-        self.w3 = w3
         self.calldata = self.signature.encode_data(self.arguments)
+        self.chain_id = "1"
 
     def to_rpc_call_args(self, block_id: int | str):
         """Convert this call into the format to send to a rpc node api request"""
         block_id_for_rpc_call = hex(block_id) if isinstance(block_id, int) else "latest"
         args = [
-            {"to": self.target, "data": self.calldata, "gas": GAS_LIMIT},
+            {
+                "to": self.target,
+                "data": self.calldata,
+                "gas": hex(GAS_LIMIT),
+            },  # if using w3.eth.call(*rpc_args) , don't need ot hex(gas limit)
             block_id_for_rpc_call,
         ]
         return args
 
     def decode_output(self, raw_bytes_output: bytes) -> dict[str, Any]:
-        label_to_output = {}
+        """applies the handling function and converts raw_bytes_output to a dict of pythonic objects"""
+
         if len(raw_bytes_output) == 0:
+            label_to_output = {}
             # calls to addresses that don't have any code at that block return HexBytes('0x')
             for label in self.data_labels:
                 label_to_output[label] = NOT_A_CONTRACT_REVERT_MESSAGE
@@ -89,18 +96,20 @@ class Call:
         if len(self.data_labels) != len(decoded_output):
             raise ReturnDataAndHandlingFunctionLengthMismatch(f"{len(self.data_labels)=} != {len(decoded_output)=}=")
 
+        label_to_output = {}
+
         for label, handling_function, decoded_value in zip(self.data_labels, self.handling_functions, decoded_output):
             label_to_output[label] = handling_function(decoded_value)
         return label_to_output
 
-    def __call__(self, block_id: int | str = "latest") -> dict[str, Any]:
-        # TODO:, fail if attempting before the multicallV2 block was deployed
-        # TODO: Maybe mock deploy it with the alchemy modify state before call)
-        # TODO: wrap in error catching for rate limiting and or archive node failures
-        # TODO: this has the same pattern as multicall can we unifiy them with inheritance
-
-        # I think i am comfrotable with this failing
+    def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, Any]:
+        # not optimized for speed, only use for testing that your calls work
         rpc_args = self.to_rpc_call_args(block_id)
-        raw_bytes_output = self.w3.eth.call(*rpc_args)
+        raw_bytes_output = w3.eth.call(*rpc_args)
         label_to_output = self.decode_output(raw_bytes_output)
         return label_to_output
+
+    def to_id(self) -> str:
+        # good enough until we run into a problem
+        call_id = self.chain_id + " " + self.target + " " + self.signature.signature + " " + str(self.arguments)
+        return call_id
