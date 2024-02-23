@@ -8,12 +8,16 @@ from multicall.signature import Signature
 from multicall.rpc_call import sync_rpc_eth_call, async_rpc_eth_call
 
 
+
+
+
 class CallRawData:
     def __init__(self, call: Call, success: bool, response_bytes: bytes, block: int) -> None:
         self.call = call
         self.success = success
         self.response_bytes = response_bytes
         self.block = block
+    
 
 
 class Multicall:
@@ -84,6 +88,28 @@ class Multicall:
         raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
         label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
         return label_to_output
+    
+    def to_call_ids(self, block: int) -> list[str]:
+        """Convert all the calls, block ot their call_ids """
+        call_ids = [c.to_id(block) for c in self.calls]
+        return call_ids
+    
+
+    async def make_call_and_prep_for_saving(
+            self, w3: Web3, block: int, session: aiohttp.ClientSession, rate_limiter: AsyncLimiter, highest_finalized_block: int
+            ):
+        
+        # don't save blocks before finalization
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
+        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+        call_raw_data = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
+        # what about this path
+        # given task, fetch and save everything that ought to be saved
+        # then read the whole things from the db and pass it through the handling funtions. 
+        # the the handlying functions don't break it
+
+
 
     def process_raw_bytes_output(self, raw_bytes_output, block):
         decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
@@ -91,7 +117,7 @@ class Multicall:
         label_to_output = self._handle_raw_data(call_raw_data)
         label_to_output["block"] = block
         return label_to_output
-
+    
     def _decoded_outputs_to_call_raw_data(self, decoded_outputs, block):
         call_raw_data = []
         for result, call in zip(decoded_outputs, self.calls):

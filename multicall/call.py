@@ -109,7 +109,9 @@ class Call:
         label_to_output = self.decode_output(raw_bytes_output)
         return label_to_output
 
-    def to_id(self) -> str:
-        # good enough until we run into a problem
-        call_id = self.chain_id + " " + self.target + " " + self.signature.signature + " " + str(self.arguments)
+    def to_id(self, block: int) -> str:
+        if not isinstance(block, int):
+            raise ValueError('cannot get a call id without a block as an int. ')
+        # good enough until I run into a problem
+        call_id = self.chain_id + " " + self.target + " " + self.signature.signature + " " + str(self.arguments) + " " + str(block)
         return call_id

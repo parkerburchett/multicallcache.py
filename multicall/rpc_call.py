@@ -20,11 +20,7 @@ async def async_rpc_eth_call(w3: HTTPProvider, rpc_args, session: aiohttp.Client
                 }
             ),
         ) as response:
-            # currently broken for an unknwon reason
             response.raise_for_status()
-
-            pass
-            assert response.status == 200, RuntimeError(f"Network Error: {response}")
             data = await response.json()
             return bytes.fromhex(data["result"][2:])
 
@@ -33,7 +29,6 @@ def sync_rpc_eth_call(w3, args):
     """
     Make a rpc call in a single client session
     # for simple not throughput optimized calls. eg during testing different calls
-
     """
     return asyncio.run(_single_client_session_rpc_eth_call(w3, args))
 
