@@ -9,6 +9,7 @@ chainids: Dict[Web3, int] = {}
 
 # unclear what is needed here
 
+
 def chunks(lst: List, n: int):
     for i in range(0, len(lst), n):
         yield lst[i : i + n]

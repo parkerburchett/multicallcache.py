@@ -48,9 +48,9 @@ class Call:
         handling_functions: Tuple[Callable] | Callable,
     ) -> None:
         """
-        target: the address that you want to make a funciton call on.
+        target: the address that you want to make a function call on.
         signature: the method to call on target, eg `totalSupply()(uint256)`
-        arguments: the tuple of arguments to pass to the funciton
+        arguments: the tuple of arguments to pass to the function
         return_data_labels: what to label the returning data as
         handling_functions: what function to pass in the pythonic output of return_data_label into
         """
@@ -111,7 +111,17 @@ class Call:
 
     def to_id(self, block: int) -> str:
         if not isinstance(block, int):
-            raise ValueError('cannot get a call id without a block as an int. ')
+            raise ValueError("cannot get a call id without a block as an int. ")
         # good enough until I run into a problem
-        call_id = self.chain_id + " " + self.target + " " + self.signature.signature + " " + str(self.arguments) + " " + str(block)
+        call_id = (
+            self.chain_id
+            + " "
+            + self.target
+            + " "
+            + self.signature.signature
+            + " "
+            + str(self.arguments)
+            + " "
+            + str(block)
+        )
         return call_id
