@@ -1,4 +1,6 @@
 from typing import Any, Callable, Tuple
+import hashlib
+
 import inspect
 
 from eth_utils import to_checksum_address
@@ -14,7 +16,7 @@ NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
 
 class HandlingFunctionFailed(Exception):
     def __init__(self, handling_function: Callable, decoded_value: Any, exception: Exception):
-        function_source_code = inspect.getsource(handling_function)
+        function_source_code = inspect.getsource(handling_function) # 
         super().__init__(
             f"""handling_function raised an exception
         
@@ -48,9 +50,9 @@ class Call:
         handling_functions: Tuple[Callable] | Callable,
     ) -> None:
         """
-        target: the address that you want to make a funciton call on.
+        target: the address that you want to make a function call on.
         signature: the method to call on target, eg `totalSupply()(uint256)`
-        arguments: the tuple of arguments to pass to the funciton
+        arguments: the tuple of arguments to pass to the function
         return_data_labels: what to label the returning data as
         handling_functions: what function to pass in the pythonic output of return_data_label into
         """
@@ -109,7 +111,22 @@ class Call:
         label_to_output = self.decode_output(raw_bytes_output)
         return label_to_output
 
-    def to_id(self) -> str:
-        # good enough until we run into a problem
-        call_id = self.chain_id + " " + self.target + " " + self.signature.signature + " " + str(self.arguments)
-        return call_id
+    def to_id(self, block: int) -> bytes:
+        if not isinstance(block, int):
+            # TODO add check if block is finalized. wihtout making lots of needless calls
+            raise ValueError("cannot get a call id without a block as an int ")
+        call_id = (
+            self.chain_id
+            + " "
+            + self.target
+            + " "
+            + self.signature.signature
+            + " "
+            + str(self.arguments)
+            + " "
+            + str(block)
+        )
+
+        hash_object = hashlib.sha256()
+        hash_object.update(call_id.encode('utf-8'))
+        return hash_object.digest()

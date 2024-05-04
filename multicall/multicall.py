@@ -1,7 +1,7 @@
 from web3 import Web3
 import aiohttp
 from aiolimiter import AsyncLimiter
-
+import hashlib
 
 from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
 from multicall.signature import Signature
@@ -10,10 +10,27 @@ from multicall.rpc_call import sync_rpc_eth_call, async_rpc_eth_call
 
 class CallRawData:
     def __init__(self, call: Call, success: bool, response_bytes: bytes, block: int) -> None:
-        self.call = call
-        self.success = success
-        self.response_bytes = response_bytes
-        self.block = block
+        self.call: Call = call
+        self.success: bool = success
+        self.response_bytes: bytes = response_bytes
+        self.block: int = block
+        self.chainID = 1  # ethereum only
+        self.call_id: bytes = self.call.to_id(self.block) 
+
+    def convert_to_format_to_save_in_cache_db(self):
+        return (
+            self.call_id,
+            self.call.target,
+            self.call.signature.signature, # ugly, TODO fix
+            str(self.call.arguments),
+            self.block,
+            self.chainID,
+            bool(self.success),
+            self.response_bytes,
+        )
+
+    def __repr__(self):
+        return f"CallRawData(callId={self.call.signature!r}, success={self.success}, block={self.block})"
 
 
 class Multicall:
@@ -67,13 +84,13 @@ class Multicall:
         ]
         return rpc_args
 
-    def call_using_web3_py(self, w3: Web3, block: int) -> list[CallRawData]:
+    def call_using_web3_py(self, w3: Web3, block: int):
         rpc_args = self.to_rpc_call_args(block)
         raw_bytes_output = w3.eth.call(*rpc_args)
         label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
         return label_to_output
 
-    def __call__(self, w3: Web3, block: int) -> list[CallRawData]:
+    def __call__(self, w3: Web3, block: int):
         rpc_args = self.to_rpc_call_args(block)
         raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
         label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
@@ -85,12 +102,42 @@ class Multicall:
         label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
         return label_to_output
 
+    def to_call_ids(self, block: int) -> list[str]:
+        """Convert all the calls, block ot their call_ids"""
+        call_ids = [c.to_id(block) for c in self.calls]
+        return call_ids
+
+    async def make_call_and_prep_for_saving(
+        self,
+        w3: Web3,
+        block: int,
+        session: aiohttp.ClientSession,
+        rate_limiter: AsyncLimiter,
+        highest_finalized_block: int,
+    ):
+
+        # don't save blocks before finalization
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
+        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+        call_raw_data = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
+        # what about this path
+        # given task, fetch and save everything that ought to be saved
+        # then read the whole things from the db and pass it through the handling functions.
+        # the the handling functions don't break it
+
     def process_raw_bytes_output(self, raw_bytes_output, block):
         decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
         call_raw_data = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
         label_to_output = self._handle_raw_data(call_raw_data)
         label_to_output["block"] = block
         return label_to_output
+
+    def make_each_call_to_raw_call_data(self, w3: Web3, block: int) -> list[CallRawData]:
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
+        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+        return self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
 
     def _decoded_outputs_to_call_raw_data(self, decoded_outputs, block):
         call_raw_data = []

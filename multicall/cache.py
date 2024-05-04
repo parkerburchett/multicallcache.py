@@ -1,65 +1,37 @@
-# from sqlitedict import SqliteDict
+from multicall.call import Call
+from multicall.multicall import CallRawData, Multicall
+import sqlite3
+import pandas as pd
+
+CACHE_PATH = "cache_db.sqlite"  # move to .env file.
 
 
-# CACHE_PATH = "cache_db.sqlite"
-# db = SqliteDict(CACHE_PATH)
+def save_data(data: list[CallRawData]) -> None:
+    # Convert the CallRawData objects to the format required for the database
+    list_of_values_to_cache = [c.convert_to_format_to_save_in_cache_db() for c in data]
 
-# ### Schema
-# """
+    # Connect to the SQLite database
+    conn = sqlite3.connect(CACHE_PATH)
+    cursor = conn.cursor()
 
+    # Bulk insert using executemany
+    cursor.executemany(
+        """
+        INSERT INTO multicallCache (callId, target, signature, arguments, block, chainID, success, response)
+        VALUES (?, ?, ?, ?, ?, ?, ? , ?)
+        ON CONFLICT(callId) DO NOTHING;
+        """,
+        list_of_values_to_cache,
+    )
 
-# SELECT *
-# FROM your_table
-# WHERE block IN (SELECT DISTINCT block FROM blocks_to_find)
-# AND call_id IN (SELECT DISTINCT call_id FROM call_ids_to_find);
-# bytes are pickle
-
-# columns:
-
-# targetAddress: address
-# signature: str
-# args: pickle
-# block_id: int
-# chain_id: int
-# state_identifer: pickle(target, signature, args, block_id, chain_id))  # this needs to be indexed
-
-# success: bool
-# response: pickle # can be error or None?
-
-# Columns:
-# target_address: str
-# signature: str
-# args: bytes
-# block_id: int
-# state_identifer: bytes
-# success: bool
-# response: bytes
-
-# # I have a list of (state identifers)
-
-# make a single query to a sqllite db that gives all the rows of the exisintg
+    # Commit the changes and close the connection
+    conn.commit()
+    conn.close()
 
 
-# # execute many.
+def fetch_all_data():
+    # Connect to the SQLite database
+    conn = sqlite3.connect(CACHE_PATH)
+    df = pd.read_sql_query("SELECT * FROM multicallCache", conn)
+    return df
 
-
-# """
-
-
-# def call_to_db_id(call: Call) -> str:
-#     return call.target, call.signature.signature, call.args, call.block_id
-
-
-# def is_in_db(call_id: str) -> bool:
-#     # simple can do a faster one,
-#     return call_id in db
-
-
-# def add_to_db(call: Call, response: any) -> None:
-#     """Add the call -> response to the db"""
-
-#     if call.block_id is None:
-#         return
-
-#     unique_id = call_to_db_id(call)
-#     db[unique_id] = response
