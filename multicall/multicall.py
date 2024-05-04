@@ -1,7 +1,7 @@
 from web3 import Web3
 import aiohttp
 from aiolimiter import AsyncLimiter
-
+import hashlib
 
 from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
 from multicall.signature import Signature
@@ -15,14 +15,13 @@ class CallRawData:
         self.response_bytes: bytes = response_bytes
         self.block: int = block
         self.chainID = 1  # ethereum only
+        self.call_id: bytes = self.call.to_id(self.block) 
 
     def convert_to_format_to_save_in_cache_db(self):
-        call_id: str = self.call.to_id(self.block)  # primary key, consider sha256(this, for storage effeciency, idk )
-        # has redundent info
         return (
-            call_id,
+            self.call_id,
             self.call.target,
-            self.call.signature,
+            self.call.signature.signature, # ugly, TODO fix
             str(self.call.arguments),
             self.block,
             self.chainID,
@@ -31,7 +30,7 @@ class CallRawData:
         )
 
     def __repr__(self):
-        return f"CallRawData(signature={self.call.signature!r}, success={self.success}, block={self.block})"
+        return f"CallRawData(callId={self.call.signature!r}, success={self.success}, block={self.block})"
 
 
 class Multicall:

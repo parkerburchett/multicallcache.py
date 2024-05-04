@@ -1,4 +1,6 @@
 from typing import Any, Callable, Tuple
+import hashlib
+
 import inspect
 
 from eth_utils import to_checksum_address
@@ -14,7 +16,7 @@ NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
 
 class HandlingFunctionFailed(Exception):
     def __init__(self, handling_function: Callable, decoded_value: Any, exception: Exception):
-        function_source_code = inspect.getsource(handling_function)
+        function_source_code = inspect.getsource(handling_function) # 
         super().__init__(
             f"""handling_function raised an exception
         
@@ -109,11 +111,10 @@ class Call:
         label_to_output = self.decode_output(raw_bytes_output)
         return label_to_output
 
-    def to_id(self, block: int) -> str:
+    def to_id(self, block: int) -> bytes:
         if not isinstance(block, int):
-            # add check if block is finalized
-            raise ValueError("cannot get a call id without a block as an int. ")
-        # good enough until I run into a problem
+            # TODO add check if block is finalized. wihtout making lots of needless calls
+            raise ValueError("cannot get a call id without a block as an int ")
         call_id = (
             self.chain_id
             + " "
@@ -125,4 +126,7 @@ class Call:
             + " "
             + str(block)
         )
-        return call_id
+
+        hash_object = hashlib.sha256()
+        hash_object.update(call_id.encode('utf-8'))
+        return hash_object.digest()

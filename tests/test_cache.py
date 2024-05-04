@@ -5,7 +5,7 @@ import pytest
 from web3 import Web3
 import web3
 from multicall.call import Call
-from multicall.cache import save_data, fetch_and_print_all_data
+from multicall.cache import save_data, fetch_all_data
 from multicall.multicall import Multicall
 import sqlite3
 
@@ -26,10 +26,9 @@ def test_can_write():
     a_multicall = Multicall([weth_bal, usdc_bal])
     data = a_multicall.make_each_call_to_raw_call_data(w3, BLOCK_TO_CHECK)
     save_data(data)
-
-    df = fetch_and_print_all_data()
+    df = fetch_all_data()
     print(df.head())
-    pass
+    # TODO add tests that it did it properly
 
 
 test_can_write()

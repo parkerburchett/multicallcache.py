@@ -6,9 +6,9 @@ import pandas as pd
 CACHE_PATH = "cache_db.sqlite"  # move to .env file.
 
 
-def save_data(data: list[CallRawData]):
+def save_data(data: list[CallRawData]) -> None:
     # Convert the CallRawData objects to the format required for the database
-    format_to_cache = [c.convert_to_format_to_save_in_cache_db() for c in data]
+    list_of_values_to_cache = [c.convert_to_format_to_save_in_cache_db() for c in data]
 
     # Connect to the SQLite database
     conn = sqlite3.connect(CACHE_PATH)
@@ -17,11 +17,11 @@ def save_data(data: list[CallRawData]):
     # Bulk insert using executemany
     cursor.executemany(
         """
-        INSERT INTO multicallCache (callId, success, single_function_return_data_bytes)
-        VALUES (?, ?, ?)
+        INSERT INTO multicallCache (callId, target, signature, arguments, block, chainID, success, response)
+        VALUES (?, ?, ?, ?, ?, ?, ? , ?)
         ON CONFLICT(callId) DO NOTHING;
         """,
-        format_to_cache,
+        list_of_values_to_cache,
     )
 
     # Commit the changes and close the connection
@@ -29,17 +29,9 @@ def save_data(data: list[CallRawData]):
     conn.close()
 
 
-def fetch_and_print_all_data():
+def fetch_all_data():
     # Connect to the SQLite database
     conn = sqlite3.connect(CACHE_PATH)
-    cursor = conn.cursor()
-
-    # Execute a query to fetch all records from multicallCache
-    cursor.execute("SELECT * FROM multicallCache")
-
-    # Fetch all rows from the cursor
-    rows = cursor.fetchall()
-    conn.close()
-    records = [{"id": r[0], "success": bool(r[1]), "response_bytes": r[2]} for r in rows]
-    df = pd.DataFrame.from_records(records)
+    df = pd.read_sql_query("SELECT * FROM multicallCache", conn)
     return df
+
