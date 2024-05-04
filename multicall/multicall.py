@@ -10,10 +10,28 @@ from multicall.rpc_call import sync_rpc_eth_call, async_rpc_eth_call
 
 class CallRawData:
     def __init__(self, call: Call, success: bool, response_bytes: bytes, block: int) -> None:
-        self.call = call
-        self.success = success
-        self.response_bytes = response_bytes
-        self.block = block
+        self.call: Call = call
+        self.success: bool = success
+        self.response_bytes: bytes = response_bytes
+        self.block: int = block
+        self.chainID = 1  # ethereum only
+
+    def convert_to_format_to_save_in_cache_db(self):
+        call_id: str = self.call.to_id(self.block)  # primary key, consider sha256(this, for storage effeciency, idk )
+        # has redundent info
+        return (
+            call_id,
+            self.call.target,
+            self.call.signature,
+            str(self.call.arguments),
+            self.block,
+            self.chainID,
+            bool(self.success),
+            self.response_bytes,
+        )
+
+    def __repr__(self):
+        return f"CallRawData(signature={self.call.signature!r}, success={self.success}, block={self.block})"
 
 
 class Multicall:
@@ -67,13 +85,13 @@ class Multicall:
         ]
         return rpc_args
 
-    def call_using_web3_py(self, w3: Web3, block: int) -> list[CallRawData]:
+    def call_using_web3_py(self, w3: Web3, block: int):
         rpc_args = self.to_rpc_call_args(block)
         raw_bytes_output = w3.eth.call(*rpc_args)
         label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
         return label_to_output
 
-    def __call__(self, w3: Web3, block: int) -> list[CallRawData]:
+    def __call__(self, w3: Web3, block: int):
         rpc_args = self.to_rpc_call_args(block)
         raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
         label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
@@ -115,6 +133,12 @@ class Multicall:
         label_to_output = self._handle_raw_data(call_raw_data)
         label_to_output["block"] = block
         return label_to_output
+
+    def make_each_call_to_raw_call_data(self, w3: Web3, block: int) -> list[CallRawData]:
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
+        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+        return self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
 
     def _decoded_outputs_to_call_raw_data(self, decoded_outputs, block):
         call_raw_data = []

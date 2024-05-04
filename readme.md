@@ -27,7 +27,12 @@ Data Columns:
 
 Incidental goals:
 - Refactor for clarity
-- Simplifiy EVM data collection to a single method. 
+- Simplify EVM data collection to a single method. 
 - Add robustness for API failing. 
 - Add more examples with complicated function signatures and return data types
 - Stricter checks to not lose data in calls. (no duplicate names in calls)
+
+
+DEV
+- `pytest` to run the tests
+- `black .`  to run the linter

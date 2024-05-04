@@ -111,6 +111,7 @@ class Call:
 
     def to_id(self, block: int) -> str:
         if not isinstance(block, int):
+            # add check if block is finalized
             raise ValueError("cannot get a call id without a block as an int. ")
         # good enough until I run into a problem
         call_id = (
