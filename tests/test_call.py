@@ -117,3 +117,6 @@ def test_malformed_calls():
 
     with pytest.raises(Exception):
         Call(cbETH, "balanceOf(address)(uint256)", (int(100)), "balanceOf", identify_function)
+
+
+test_multiple_return_values()

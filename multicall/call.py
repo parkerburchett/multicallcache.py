@@ -16,7 +16,7 @@ NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
 
 class HandlingFunctionFailed(Exception):
     def __init__(self, handling_function: Callable, decoded_value: Any, exception: Exception):
-        function_source_code = inspect.getsource(handling_function) # 
+        function_source_code = inspect.getsource(handling_function)  #
         super().__init__(
             f"""handling_function raised an exception
         
@@ -128,5 +128,5 @@ class Call:
         )
 
         hash_object = hashlib.sha256()
-        hash_object.update(call_id.encode('utf-8'))
+        hash_object.update(call_id.encode("utf-8"))
         return hash_object.digest()

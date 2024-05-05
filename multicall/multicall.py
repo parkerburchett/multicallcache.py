@@ -15,13 +15,13 @@ class CallRawData:
         self.response_bytes: bytes = response_bytes
         self.block: int = block
         self.chainID = 1  # ethereum only
-        self.call_id: bytes = self.call.to_id(self.block) 
+        self.call_id: bytes = self.call.to_id(self.block)
 
     def convert_to_format_to_save_in_cache_db(self):
         return (
             self.call_id,
             self.call.target,
-            self.call.signature.signature, # ugly, TODO fix
+            self.call.signature.signature,  # ugly, TODO fix
             str(self.call.arguments),
             self.block,
             self.chainID,
