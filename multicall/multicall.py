@@ -33,6 +33,7 @@ class CallRawData:
         return f"CallRawData(callId={self.call.signature!r}, success={self.success}, block={self.block})"
 
 
+# TODO refactor for clairty
 class Multicall:
     def __init__(
         self,
@@ -132,6 +133,10 @@ class Multicall:
         label_to_output = self._handle_raw_data(call_raw_data)
         label_to_output["block"] = block
         return label_to_output
+
+    def get_all_call_ids(self, block: int) -> list[CallRawData]:
+        ids = [call.to_id(block) for call in self.calls]
+        return ids
 
     def make_each_call_to_raw_call_data(self, w3: Web3, block: int) -> list[CallRawData]:
         rpc_args = self.to_rpc_call_args(block)

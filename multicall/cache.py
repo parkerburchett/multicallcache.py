@@ -1,5 +1,6 @@
 from multicall.call import Call
 from multicall.multicall import CallRawData, Multicall
+from multicall.utils import time_function
 import sqlite3
 import pandas as pd
 import random
@@ -32,20 +33,7 @@ writing is very fast. and it does not grow quickly. 10m data points is a whole l
 
 """
 
-
-def time_function(func):
-    """
-    Decorator that measures and prints the execution time of a function.
-    """
-
-    def wrapper(*args, **kwargs):
-        start_time = time.time()  # Record the start time of the function
-        result = func(*args, **kwargs)  # Call the function with the provided arguments
-        end_time = time.time()  # Record the end time of the function
-        print(f"{func.__name__} executed in {end_time - start_time:.6f} seconds.")
-        return result  # Return the result of the function
-
-    return wrapper
+COLUMNS = ["callId", "target", "signature", "arguments", "block", "chainID", "success", "response"]
 
 
 def save_data(data: list[CallRawData]) -> None:
@@ -73,16 +61,21 @@ def save_data(data: list[CallRawData]) -> None:
 
 @time_function
 def get_data_by_call_ids(call_ids: list[str]) -> pd.DataFrame:
-    # fails on 1_000_000 call_ids
+    # fails on 1_000_000+ call_ids
     conn = sqlite3.connect(CACHE_PATH)
     query = f"""
         SELECT * FROM multicallCache
         WHERE callId IN ({','.join('?' * len(call_ids))})
     """
-    df = pd.read_sql_query(query, conn, params=call_ids)
+    existing_df = pd.read_sql_query(query, conn, params=call_ids)
+    existing_df.columns = COLUMNS
     conn.close()
+    df_callIds = pd.DataFrame()
+    df_callIds["callId"] = call_ids
+    # df_final = existing_df.merge(df_callIds, on='callId', how='left') # not certain join is right
+    df_final = df_callIds.merge(existing_df, on="callId", how="left")  # not certain join is right
 
-    return df
+    return df_final
 
 
 @time_function
@@ -95,7 +88,7 @@ def get_data_by_call_ids_optimized(call_ids: list[str]) -> pd.DataFrame:
     cursor.execute("CREATE TEMP TABLE IF NOT EXISTS tempCallIds (callId TEXT PRIMARY KEY)")
 
     # Insert call IDs into the temporary table (in batches if necessary)
-    for batch in (call_ids[i : i + 500] for i in range(0, len(call_ids), 500)):
+    for batch in (call_ids[i : i + 5000] for i in range(0, len(call_ids), 5000)):
         cursor.executemany("INSERT OR IGNORE INTO tempCallIds (callId) VALUES (?)", [(id,) for id in batch])
 
     # Perform a join to get the required data

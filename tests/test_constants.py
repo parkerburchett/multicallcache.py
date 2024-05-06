@@ -25,6 +25,15 @@ weth_bal = Call(
     to_str,
 )
 
+weth_bal2 = Call(
+    weth,
+    "balanceOf(address)(uint256)",
+    ("0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5"),
+    "weth_bal2",
+    to_str,
+)
+
+
 usdc_bal = Call(
     usdc,
     "balanceOf(address)(uint256)",

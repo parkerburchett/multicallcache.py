@@ -4,10 +4,19 @@ import eth_retry
 from web3 import Web3
 
 from multicall.constants import Network
+import time
 
 chainids: Dict[Web3, int] = {}
 
-# unclear what is needed here
+
+def flatten(nested_list: list):
+    flat_list = []
+    for item in nested_list:
+        if isinstance(item, list):
+            flat_list.extend(flatten(item))
+        else:
+            flat_list.append(item)
+    return flat_list
 
 
 def chunks(lst: List, n: int):
@@ -50,3 +59,18 @@ def state_override_supported(w3: Web3) -> bool:
     if chain_id(w3) in [Network.Gnosis]:
         return False
     return True
+
+
+def time_function(func):
+    """
+    Decorator that measures and prints the execution time of a function.
+    """
+
+    def wrapper(*args, **kwargs):
+        start_time = time.time()  # Record the start time of the function
+        result = func(*args, **kwargs)  # Call the function with the provided arguments
+        end_time = time.time()  # Record the end time of the function
+        print(f"{func.__name__} executed in {end_time - start_time:.6f} seconds.")
+        return result  # Return the result of the function
+
+    return wrapper

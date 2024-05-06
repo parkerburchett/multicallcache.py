@@ -159,6 +159,3 @@ def test_multicall():
     assert (
         multicall_with_call_to_address_without_code(w3, BLOCK_TO_CHECK) == expected_values_combination
     ), "multicall_with_call_to_address_without_code failed"
-
-
-test_multicall()
