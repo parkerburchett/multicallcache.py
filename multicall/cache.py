@@ -1,6 +1,6 @@
 from multicall.call import Call
 from multicall.multicall import CallRawData, Multicall
-from multicall.utils import time_function
+from multicall.utils import time_function, flatten
 import sqlite3
 import pandas as pd
 import random
@@ -33,7 +33,7 @@ writing is very fast. and it does not grow quickly. 10m data points is a whole l
 
 """
 
-COLUMNS = ["callId", "target", "signature", "arguments", "block", "chainID", "success", "response"]
+COLUMNS = ["callId", "target", "signature", "arguments", "block", "chainId", "success", "response"]
 
 
 def save_data(data: list[CallRawData]) -> None:
@@ -47,16 +47,38 @@ def save_data(data: list[CallRawData]) -> None:
     # Bulk insert using executemany
     cursor.executemany(
         """
-        INSERT INTO multicallCache (callId, target, signature, arguments, block, chainID, success, response)
+        INSERT INTO multicallCache (callId, target, signature, arguments, block, chainId, success, response)
         VALUES (?, ?, ?, ?, ?, ?, ? , ?)
         ON CONFLICT(callId) DO NOTHING;
         """,
         list_of_values_to_cache,
     )
-
-    # Commit the changes and close the connection
     conn.commit()
     conn.close()
+
+
+def get_data_from_disk(calls: list[Call], blocks: list[int]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """returns a dataframe of the full data"""
+    multicall = Multicall(calls)
+    empty_df = pd.DataFrame.from_records(flatten([multicall.to_list_of_empty_records(block) for block in blocks]))
+    call_ids = empty_df["callId"].to_list()
+
+    with sqlite3.connect(CACHE_PATH) as conn:
+        query = f"""
+            SELECT * FROM multicallCache
+            WHERE callId IN ({','.join('?' * len(call_ids))})
+        """
+        existing_df = pd.read_sql_query(query, conn, params=call_ids)
+        existing_df.columns = COLUMNS
+
+    # TODO look for optimizations
+    call_ids_not_already_found = set(empty_df["callId"]).difference(existing_df["callId"])
+    not_found_df = empty_df[empty_df["callId"].isin(call_ids_not_already_found)]
+
+    print("existingdf", existing_df.columns)
+    print("not_found_df", not_found_df.columns)
+
+    return existing_df, not_found_df
 
 
 @time_function
@@ -73,50 +95,44 @@ def get_data_by_call_ids(call_ids: list[str]) -> pd.DataFrame:
     df_callIds = pd.DataFrame()
     df_callIds["callId"] = call_ids
     # df_final = existing_df.merge(df_callIds, on='callId', how='left') # not certain join is right
-    df_final = df_callIds.merge(existing_df, on="callId", how="left")  # not certain join is right
+    df_final = df_callIds.merge(existing_df, on="callId", how="left")
 
     return df_final
 
 
-@time_function
-def get_data_by_call_ids_optimized(call_ids: list[str]) -> pd.DataFrame:
-    # note tested, idk if needed
-    conn = sqlite3.connect(CACHE_PATH)
-    cursor = conn.cursor()
+# @time_function
+# def get_data_by_call_ids_optimized(call_ids: list[str]) -> pd.DataFrame:
+#     # Just use the simple version, on sql error, recursivily split, and try again
+#     # not clear if you can do parallel reads.
+#     # note tested, idk if needed
+#     conn = sqlite3.connect(CACHE_PATH)
+#     cursor = conn.cursor()
 
-    # Create a temporary table
-    cursor.execute("CREATE TEMP TABLE IF NOT EXISTS tempCallIds (callId TEXT PRIMARY KEY)")
+#     # Create a temporary table
+#     cursor.execute("CREATE TEMP TABLE IF NOT EXISTS tempCallIds (callId TEXT PRIMARY KEY)")
 
-    # Insert call IDs into the temporary table (in batches if necessary)
-    for batch in (call_ids[i : i + 5000] for i in range(0, len(call_ids), 5000)):
-        cursor.executemany("INSERT OR IGNORE INTO tempCallIds (callId) VALUES (?)", [(id,) for id in batch])
+#     # Insert call IDs into the temporary table (in batches if necessary)
+#     for batch in (call_ids[i : i + 5000] for i in range(0, len(call_ids), 5000)):
+#         cursor.executemany("INSERT OR IGNORE INTO tempCallIds (callId) VALUES (?)", [(id,) for id in batch])
 
-    # Perform a join to get the required data
-    query = """
-        SELECT m.* FROM multicallCache m
-        JOIN tempCallIds t ON m.callId = t.callId
-    """
-    df = pd.read_sql_query(query, conn)
+#     # Perform a join to get the required data
+#     query = """
+#         SELECT m.* FROM multicallCache m
+#         JOIN tempCallIds t ON m.callId = t.callId
+#     """
+#     df = pd.read_sql_query(query, conn)
 
-    # Drop the temporary table
-    cursor.execute("DROP TABLE tempCallIds")
+#     # Drop the temporary table
+#     cursor.execute("DROP TABLE tempCallIds")
 
-    conn.close()
-    return df
-
-
-# i think the path should be
-# try get_data_by_call_ids
-# if that fails
-# do get_data_by_call_ids_optimized
-# alternative is to array split in to 100k chunks get_data_by_call_ids
-# is cleaner
+#     conn.close()
+#     return df
 
 
 def fetch_all_data():
-    conn = sqlite3.connect(CACHE_PATH)
-    df = pd.read_sql_query("SELECT * FROM multicallCache", conn)
-    conn.close()
+    # todo switch all to with statements
+    with sqlite3.connect(CACHE_PATH) as conn:
+        df = pd.read_sql_query("SELECT * FROM multicallCache", conn)
     return df
 
 
@@ -148,11 +164,10 @@ def generate_random_data(n: int) -> list:
     return data
 
 
+@time_function
 def insert_random_rows(n: int) -> None:
     random_data = generate_random_data(n)
-    from datetime import datetime
 
-    start = datetime.now()
     conn = sqlite3.connect(CACHE_PATH)
     cursor = conn.cursor()
 
@@ -167,4 +182,3 @@ def insert_random_rows(n: int) -> None:
 
     conn.commit()
     conn.close()
-    print("time to write", n, "rows", datetime.now() - start)

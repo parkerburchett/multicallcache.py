@@ -2,6 +2,7 @@ from web3 import Web3
 import aiohttp
 from aiolimiter import AsyncLimiter
 import hashlib
+import pandas as pd
 
 from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
 from multicall.signature import Signature
@@ -9,31 +10,43 @@ from multicall.rpc_call import sync_rpc_eth_call, async_rpc_eth_call
 
 
 class CallRawData:
-    def __init__(self, call: Call, success: bool, response_bytes: bytes, block: int) -> None:
+    def __init__(self, call: Call, block: int, success: bool = None, response: bytes = None) -> None:
         self.call: Call = call
         self.success: bool = success
-        self.response_bytes: bytes = response_bytes
+        self.response: bytes = response
         self.block: int = block
-        self.chainID = 1  # ethereum only
+        self.chainID = 1  # Ethereum only
         self.call_id: bytes = self.call.to_id(self.block)
 
     def convert_to_format_to_save_in_cache_db(self):
         return (
             self.call_id,
             self.call.target,
-            self.call.signature.signature,  # ugly, TODO fix
-            str(self.call.arguments),
+            self.call.signature.signature,
+            self.call.arguments,
             self.block,
             self.chainID,
-            bool(self.success),
-            self.response_bytes,
+            self.success,
+            self.response,
         )
+
+    def to_record(self) -> dict[str:any]:
+        return {
+            "callId": self.call_id,
+            "target": self.call.target,
+            "signature": self.call.signature.signature,
+            "arguments": self.call.arguments,
+            "block": self.block,
+            "chainId": self.chainID,
+            "success": self.success,
+            "response": self.response,
+        }
 
     def __repr__(self):
         return f"CallRawData(callId={self.call.signature!r}, success={self.success}, block={self.block})"
 
 
-# TODO refactor for clairty
+# TODO refactor for clearness
 class Multicall:
     def __init__(
         self,
@@ -107,6 +120,9 @@ class Multicall:
         """Convert all the calls, block ot their call_ids"""
         call_ids = [c.to_id(block) for c in self.calls]
         return call_ids
+
+    def to_list_of_empty_records(self, block: int) -> list[dict]:
+        return list([CallRawData(call, block, None, None).to_record() for call in self.calls])
 
     async def make_call_and_prep_for_saving(
         self,
