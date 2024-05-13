@@ -7,7 +7,7 @@ from web3 import Web3
 
 from multicall.call import Call, REVERTED_UNKNOWN_MESSAGE
 from multicall.multicall import Multicall
-from multicall.utils import flatten
+from multicall.utils import flatten, time_function
 from multicall.cache import save_data, get_data_from_disk
 from aiolimiter import AsyncLimiter
 
@@ -26,29 +26,18 @@ async def async_fetch_multicalls_across_blocks(
 
     return pd.DataFrame.from_records(responses)
 
-# primary entry point
-def fetch_save_and_return(calls: list[Call], blocks: list[int], w3: Web3) -> pd.DataFrame:
-    # todo, calls, and blocks can be 0 make sure it works
-    raw_bytes_data_df, not_found_df = get_data_from_disk(calls, blocks)
-    print(f'{raw_bytes_data_df.shape=}      {not_found_df.shape=}')
-    blocks_left = [int(b) for b in not_found_df["block"].unique()]
-    if len(blocks_left) > 0:
-        print(f'some data not found, making {len(blocks_left)} external calls')
-        simple_sequential_fetch_multicalls_across_blocks_and_save(calls, blocks_left, w3) # todo replace with faster async version
-        raw_bytes_data_df, not_found_df = get_data_from_disk(calls, blocks)
-    else:
-        print('all data on disk, no external calls needed!!!')
-
-    if not_found_df.shape[0] != 0:
-        raise ValueError("failed to save everything to disk")
-
+@time_function
+def _raw_bytes_data_df_to_processed_block_wise_data_df(
+    raw_bytes_data_df: pd.DataFrame, calls: list[Call], blocks: list[int]
+) -> pd.DataFrame:
+    # pure function, no external calls, see if speed matter at all here
     # dict of callid: raw_bytes_output
     call_id_to_raw_bytes_output = dict()
 
     for callId, success, response in zip(
         raw_bytes_data_df["callId"], raw_bytes_data_df["success"], raw_bytes_data_df["response"]
     ):
-        call_id_to_raw_bytes_output[callId] = (success, response) 
+        call_id_to_raw_bytes_output[callId] = (success, response)
 
     callIds_to_call = dict()
 
@@ -102,6 +91,31 @@ def fetch_save_and_return(calls: list[Call], blocks: list[int], w3: Web3) -> pd.
     processed_block_wise_data_df = pd.DataFrame.from_records(records)
 
     return processed_block_wise_data_df
+
+
+# primary entry point
+def fetch_save_and_return(calls: list[Call], blocks: list[int], w3: Web3) -> pd.DataFrame:
+    # todo, calls, and blocks can be 0 make sure it works
+    raw_bytes_data_df, not_found_df = get_data_from_disk(calls, blocks)
+    print(f"{raw_bytes_data_df.shape=}      {not_found_df.shape=}")
+    blocks_left = [int(b) for b in not_found_df["block"].unique()]
+    if len(blocks_left) > 0:
+        print(f"some data not found, making {len(blocks_left)} external calls")
+        simple_sequential_fetch_multicalls_across_blocks_and_save(
+            calls, blocks_left, w3
+        )  # todo replace with faster async version
+        raw_bytes_data_df, not_found_df = get_data_from_disk(calls, blocks)
+    else:
+        print("all data on disk, no external calls needed!!!")
+
+    if not_found_df.shape[0] != 0:
+        raise ValueError("failed to save everything to disk")
+    
+    processed_block_wise_data_df = _raw_bytes_data_df_to_processed_block_wise_data_df(
+        raw_bytes_data_df, calls, blocks
+    )
+    return processed_block_wise_data_df
+
 
 
 def simple_sequential_fetch_multicalls_across_blocks_and_save(calls: list[Call], blocks: list[int], w3: Web3) -> None:
