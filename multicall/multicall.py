@@ -3,6 +3,7 @@ import aiohttp
 from aiolimiter import AsyncLimiter
 import hashlib
 import pandas as pd
+import pickle
 
 from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
 from multicall.signature import Signature
@@ -35,7 +36,8 @@ class CallRawData:
             "callId": self.call_id,
             "target": self.call.target,
             "signature": self.call.signature.signature,
-            "arguments": self.call.arguments,
+            "argumentsAsStr": str(self.call.arguments),
+            "argumentsAsBytes": pickle.dumps(self.call.arguments),
             "block": self.block,
             "chainId": self.chainID,
             "success": self.success,
@@ -98,12 +100,6 @@ class Multicall:
         ]
         return rpc_args
 
-    def call_using_web3_py(self, w3: Web3, block: int):
-        rpc_args = self.to_rpc_call_args(block)
-        raw_bytes_output = w3.eth.call(*rpc_args)
-        label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
-        return label_to_output
-
     def __call__(self, w3: Web3, block: int):
         rpc_args = self.to_rpc_call_args(block)
         raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
@@ -121,7 +117,7 @@ class Multicall:
         call_ids = [c.to_id(block) for c in self.calls]
         return call_ids
 
-    def to_list_of_empty_records(self, block: int) -> list[dict]:
+    def to_list_of_empty_records(self, block: int):
         return list([CallRawData(call, block, None, None).to_record() for call in self.calls])
 
     async def make_call_and_prep_for_saving(
@@ -143,8 +139,20 @@ class Multicall:
         # then read the whole things from the db and pass it through the handling functions.
         # the the handling functions don't break it
 
+    def make_external_calls_to_raw_data(self, w3: Web3, block: int) -> list[CallRawData]:
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
+        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+        records = []
+        for call, success_bytes_tuple in zip(self.calls, decoded_outputs):
+            success, response = success_bytes_tuple
+            data = CallRawData(call, block, success, response)
+            records.append(data)
+        return records
+
     def process_raw_bytes_output(self, raw_bytes_output, block):
         decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+        # decoded_outputs list[tuple[success, data]]
         call_raw_data = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
         label_to_output = self._handle_raw_data(call_raw_data)
         label_to_output["block"] = block

@@ -12,6 +12,7 @@ from multicall.signature import Signature
 GAS_LIMIT = 55_000_000
 CALL_FAILED_REVERT_MESSAGE = "reverted_call_failed"
 NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
+REVERTED_UNKNOWN_MESSAGE = "reverted_not_sure_why"
 
 
 class HandlingFunctionFailed(Exception):

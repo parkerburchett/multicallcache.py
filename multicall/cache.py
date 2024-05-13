@@ -8,7 +8,7 @@ import string
 import multiprocessing
 from multiprocessing import Pool
 import time
-
+import pickle
 
 CACHE_PATH = "cache_db.sqlite"  # move to .env file.
 
@@ -33,7 +33,17 @@ writing is very fast. and it does not grow quickly. 10m data points is a whole l
 
 """
 
-COLUMNS = ["callId", "target", "signature", "arguments", "block", "chainId", "success", "response"]
+COLUMNS = [
+    "callId",
+    "target",
+    "signature",
+    "argumentsAsStr",
+    "argumentsAsPickle",
+    "block",
+    "chainId",
+    "success",
+    "response",
+]
 
 
 def save_data(data: list[CallRawData]) -> None:
@@ -47,7 +57,7 @@ def save_data(data: list[CallRawData]) -> None:
     # Bulk insert using executemany
     cursor.executemany(
         """
-        INSERT INTO multicallCache (callId, target, signature, arguments, block, chainId, success, response)
+        INSERT INTO multicallCache (callId, target, signature, argumentsAsStr, argumentsAsPickle, block, chainId, success, response)
         VALUES (?, ?, ?, ?, ?, ?, ? , ?)
         ON CONFLICT(callId) DO NOTHING;
         """,
@@ -100,40 +110,9 @@ def get_data_by_call_ids(call_ids: list[str]) -> pd.DataFrame:
     return df_final
 
 
-# @time_function
-# def get_data_by_call_ids_optimized(call_ids: list[str]) -> pd.DataFrame:
-#     # Just use the simple version, on sql error, recursivily split, and try again
-#     # not clear if you can do parallel reads.
-#     # note tested, idk if needed
-#     conn = sqlite3.connect(CACHE_PATH)
-#     cursor = conn.cursor()
-
-#     # Create a temporary table
-#     cursor.execute("CREATE TEMP TABLE IF NOT EXISTS tempCallIds (callId TEXT PRIMARY KEY)")
-
-#     # Insert call IDs into the temporary table (in batches if necessary)
-#     for batch in (call_ids[i : i + 5000] for i in range(0, len(call_ids), 5000)):
-#         cursor.executemany("INSERT OR IGNORE INTO tempCallIds (callId) VALUES (?)", [(id,) for id in batch])
-
-#     # Perform a join to get the required data
-#     query = """
-#         SELECT m.* FROM multicallCache m
-#         JOIN tempCallIds t ON m.callId = t.callId
-#     """
-#     df = pd.read_sql_query(query, conn)
-
-#     # Drop the temporary table
-#     cursor.execute("DROP TABLE tempCallIds")
-
-#     conn.close()
-#     return df
-
-
 def fetch_all_data():
-    # todo switch all to with statements
     with sqlite3.connect(CACHE_PATH) as conn:
-        df = pd.read_sql_query("SELECT * FROM multicallCache", conn)
-    return df
+        return pd.read_sql_query("SELECT * FROM multicallCache", conn)
 
 
 def generate_random_string(length: int) -> str:
@@ -144,7 +123,9 @@ def generate_row(_) -> tuple:
     call_id = generate_random_string(40)
     target = generate_random_string(42)
     signature = generate_random_string(100)
-    arguments = generate_random_string(100)
+    arguments = (100, 50, generate_random_string(40))
+    argumentsAsString = str(arguments)
+    argumentsAsPickle = pickle.dumps(arguments)
     block = random.randint(1, 20_000_000)
     chain_id = random.randint(1, 100)
     success = random.choice([True, False])
@@ -153,7 +134,7 @@ def generate_row(_) -> tuple:
     bytes_response_length = 40
     num_responses = random.choice([1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 5, 10, 100])
     response = bytes(generate_random_string(bytes_response_length * num_responses), "utf-8")  # the largest random bytes
-    return (call_id, target, signature, arguments, block, chain_id, success, response)
+    return (call_id, target, signature, argumentsAsString, argumentsAsPickle, block, chain_id, success, response)
 
 
 def generate_random_data(n: int) -> list:
@@ -173,7 +154,7 @@ def insert_random_rows(n: int) -> None:
 
     cursor.executemany(
         """
-        INSERT INTO multicallCache (callId, target, signature, arguments, block, chainID, success, response)
+        INSERT INTO multicallCache (callId, target, signature, argumentsAsStr, argumentsAsPickle, block, chainID, success, response)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(callId) DO NOTHING;
         """,

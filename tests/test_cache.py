@@ -11,7 +11,6 @@ from multicall.cache import (
     insert_random_rows,
     get_data_by_call_ids,
     generate_random_data,
-    get_data_by_call_ids_optimized,
 )
 from multicall.multicall import Multicall
 import sqlite3
@@ -51,26 +50,3 @@ def write_big():
     print("start reading")
     df = fetch_all_data()
     print(df.shape)
-
-
-# TODO add tests that callId works even for all kinds of calls
-
-
-if __name__ == "__main__":
-    # write_big()
-    df = fetch_all_data()
-    exist_callIds = list(df["callId"].sample(1_000_000).values)
-    does_not_exist_callIds = [d[0] for d in generate_random_data(1_000_000)]
-
-    # exists_df = get_data_by_call_ids_optimized(exist_callIds)
-    # print(exists_df.head())
-    # print(exists_df.shape)
-    # not_exist_df = get_data_by_call_ids_optimized(does_not_exist_callIds)
-    # print(not_exist_df.head())
-    # print(not_exist_df.shape)
-
-    both_df = get_data_by_call_ids_optimized([*exist_callIds, *does_not_exist_callIds])
-    print(both_df.head())
-    print(both_df.shape)
-
-    pass
