@@ -1,12 +1,7 @@
 import pandas as pd
 import pytest
 
-from multicall.fetch_multicall_across_blocks import (
-    fetch_save_and_return,
-    async_fetch_multicalls_across_blocks,
-    first_read_disk_then_fetch_others,
-)
-
+from multicall.fetch_multicall_across_blocks import fetch_save_and_return
 
 from test_constants import w3, weth_bal, usdc_bal, invalid_function, target_has_no_code, test_data_path, weth_bal2
 
@@ -26,10 +21,16 @@ from test_constants import w3, weth_bal, usdc_bal, invalid_function, target_has_
 
 
 def test_fetch_save_and_return():
+
     calls = [weth_bal, usdc_bal, invalid_function, target_has_no_code]
-    blocks = [i for i in range(18_000_000, 19_000_000, 10_000)]
-    df = fetch_save_and_return([*calls, weth_bal2], blocks, w3)
-    print(df.head())
+    blocks = [i for i in range(18_000_000 + 2, 19_000_000, 5_000)]
+
+    print("first go")
+    df = fetch_save_and_return([*calls, weth_bal2], blocks, w3, 10)
+
+    print("second go")
+    df = fetch_save_and_return([*calls, weth_bal2], blocks, w3, 10)
+
     pass
 
 

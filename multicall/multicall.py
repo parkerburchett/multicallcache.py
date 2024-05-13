@@ -9,8 +9,21 @@ from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
 from multicall.signature import Signature
 from multicall.rpc_call import sync_rpc_eth_call, async_rpc_eth_call
 
+COLUMNS = [
+    "callId",
+    "target",
+    "signature",
+    "argumentsAsStr",
+    "argumentsAsPickle",
+    "block",
+    "chainId",
+    "success",
+    "response",
+]
+
 
 class CallRawData:
+    # TODO consider some type validation
     def __init__(self, call: Call, block: int, success: bool = None, response: bytes = None) -> None:
         self.call: Call = call
         self.success: bool = success
@@ -20,9 +33,8 @@ class CallRawData:
         self.call_id: bytes = self.call.to_id(self.block)
 
     def convert_to_format_to_save_in_cache_db(self):
-
         record = self.to_record()
-        to_save_format = tuple([v for k, v in record.items()])
+        to_save_format = tuple([record[c] for c in COLUMNS])
         return to_save_format
 
     def to_record(self) -> dict[str:any]:
@@ -31,7 +43,7 @@ class CallRawData:
             "target": self.call.target,
             "signature": self.call.signature.signature,
             "argumentsAsStr": str(self.call.arguments),
-            "argumentsAsBytes": pickle.dumps(self.call.arguments),
+            "argumentsAsPickle": pickle.dumps(self.call.arguments),
             "block": self.block,
             "chainId": self.chainID,
             "success": self.success,
@@ -113,25 +125,6 @@ class Multicall:
     def to_list_of_empty_records(self, block: int):
         return list([CallRawData(call, block, None, None).to_record() for call in self.calls])
 
-    async def make_call_and_prep_for_saving(
-        self,
-        w3: Web3,
-        block: int,
-        session: aiohttp.ClientSession,
-        rate_limiter: AsyncLimiter,
-        highest_finalized_block: int,
-    ):
-
-        # don't save blocks before finalization
-        rpc_args = self.to_rpc_call_args(block)
-        raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
-        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
-        call_raw_data = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
-        # what about this path
-        # given task, fetch and save everything that ought to be saved
-        # then read the whole things from the db and pass it through the handling functions.
-        # the the handling functions don't break it
-
     def make_external_calls_to_raw_data(self, w3: Web3, block: int) -> list[CallRawData]:
         rpc_args = self.to_rpc_call_args(block)
         raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
@@ -159,13 +152,23 @@ class Multicall:
         rpc_args = self.to_rpc_call_args(block)
         raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
         decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
-        return self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
+        call_raw_data_list = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
+        return call_raw_data_list
+
+    async def async_make_each_call_to_raw_call_data(
+        self, w3: Web3, block: int, session: aiohttp.ClientSession, rate_limiter: AsyncLimiter
+    ):
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
+        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+        call_raw_data_list = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
+        return call_raw_data_list
 
     def _decoded_outputs_to_call_raw_data(self, decoded_outputs, block):
         call_raw_data = []
         for result, call in zip(decoded_outputs, self.calls):
-            success, single_function_return_data_bytes = result
-            call_raw_data.append(CallRawData(call, success, single_function_return_data_bytes, block))
+            success, response = result
+            call_raw_data.append(CallRawData(call=call, block=block, success=success, response=response))
         return call_raw_data
 
     def _handle_raw_data(self, call_raw_data: list[CallRawData]) -> dict[str, any]:

@@ -66,6 +66,7 @@ def save_data(data: list[CallRawData]) -> None:
     pass
 
 
+@time_function
 def get_data_from_disk(calls: list[Call], blocks: list[int]) -> tuple[pd.DataFrame, pd.DataFrame]:
     """returns a dataframe of the full data"""
     multicall = Multicall(calls)
@@ -87,7 +88,6 @@ def get_data_from_disk(calls: list[Call], blocks: list[int]) -> tuple[pd.DataFra
     return existing_df, not_found_df
 
 
-@time_function
 def get_data_by_call_ids(call_ids: list[str]) -> pd.DataFrame:
     # fails on 1_000_000+ call_ids
     conn = sqlite3.connect(CACHE_PATH)
