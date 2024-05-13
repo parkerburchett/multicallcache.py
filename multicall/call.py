@@ -10,6 +10,7 @@ from multicall.signature import Signature
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
+# TODO Only have a single revert message. maybe? idk
 CALL_FAILED_REVERT_MESSAGE = "reverted_call_failed"
 NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
 REVERTED_UNKNOWN_MESSAGE = "reverted_not_sure_why"

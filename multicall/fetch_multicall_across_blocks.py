@@ -26,25 +26,29 @@ async def async_fetch_multicalls_across_blocks(
 
     return pd.DataFrame.from_records(responses)
 
-
 # primary entry point
 def fetch_save_and_return(calls: list[Call], blocks: list[int], w3: Web3) -> pd.DataFrame:
-    _, not_found_df = get_data_from_disk(calls, blocks)
-    blocks_left = list(not_found_df["block"].unique())
-    simple_sequential_fetch_multicalls_across_blocks_and_save(calls, blocks_left, w3)
-
+    # todo, calls, and blocks can be 0 make sure it works
     raw_bytes_data_df, not_found_df = get_data_from_disk(calls, blocks)
+    print(f'{raw_bytes_data_df.shape=}      {not_found_df.shape=}')
+    blocks_left = [int(b) for b in not_found_df["block"].unique()]
+    if len(blocks_left) > 0:
+        print(f'some data not found, making {len(blocks_left)} external calls')
+        simple_sequential_fetch_multicalls_across_blocks_and_save(calls, blocks_left, w3) # todo replace with faster async version
+        raw_bytes_data_df, not_found_df = get_data_from_disk(calls, blocks)
+    else:
+        print('all data on disk, no external calls needed!!!')
 
     if not_found_df.shape[0] != 0:
-        raise ValueError("failed to save everthing to disk")
+        raise ValueError("failed to save everything to disk")
 
     # dict of callid: raw_bytes_output
     call_id_to_raw_bytes_output = dict()
 
-    for callId, response, success in zip(
-        raw_bytes_data_df["callId"], raw_bytes_data_df["response"], raw_bytes_data_df["success"]
+    for callId, success, response in zip(
+        raw_bytes_data_df["callId"], raw_bytes_data_df["success"], raw_bytes_data_df["response"]
     ):
-        call_id_to_raw_bytes_output[callId] = (success, response)  # tuple of (bool success, bytes response)
+        call_id_to_raw_bytes_output[callId] = (success, response) 
 
     callIds_to_call = dict()
 
@@ -53,7 +57,7 @@ def fetch_save_and_return(calls: list[Call], blocks: list[int], w3: Web3) -> pd.
             callIds_to_call[call.to_id(block)] = (call, block)
 
     # label, handeling function, decoded value
-    processed_outputs: dict[int : [dict[str, any]]] = dict()
+    processed_outputs: dict[int, list[dict[str, any]]] = {}
 
     for callId, call_block in callIds_to_call.items():
         (call, block) = call_block
@@ -101,7 +105,7 @@ def fetch_save_and_return(calls: list[Call], blocks: list[int], w3: Web3) -> pd.
 
 
 def simple_sequential_fetch_multicalls_across_blocks_and_save(calls: list[Call], blocks: list[int], w3: Web3) -> None:
-    """make and save all the responese from calls"""
+    """make and save all the data from calls, blocks"""
 
     # make and save all of the data in calls and blocks
     multicall = Multicall(calls)
@@ -119,7 +123,7 @@ def _from_not_found_df_to_blocks_to_check(
 ) -> list[int]:
     ## note edge case where in block 1 we want 10 calls but in block 2 we want 4 calls because we have the other six
     # ignoring for now because there are negligible costs from increasing the calls at one block from 1 to 100
-    # via multicall. gas for viwe only calls is free
+    # via multicall. gas for view only calls is free so spend it up
 
     multicall = Multicall(all_calls)
     blocks_to_check = []

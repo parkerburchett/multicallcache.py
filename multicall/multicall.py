@@ -20,16 +20,10 @@ class CallRawData:
         self.call_id: bytes = self.call.to_id(self.block)
 
     def convert_to_format_to_save_in_cache_db(self):
-        return (
-            self.call_id,
-            self.call.target,
-            self.call.signature.signature,
-            self.call.arguments,
-            self.block,
-            self.chainID,
-            self.success,
-            self.response,
-        )
+
+        record = self.to_record()
+        to_save_format = tuple([v for k, v in record.items()])
+        return to_save_format
 
     def to_record(self) -> dict[str:any]:
         return {
@@ -91,12 +85,11 @@ class Multicall:
 
     def to_rpc_call_args(self, block: int):
         """Convert this multicall into the format required fo for a rpc node api request"""
-
         if not isinstance(block, int):
             raise ValueError("block must be an int", type(block), block)
         rpc_args = [
             {"to": self.multicall_address, "data": self.calldata, "gas": hex(GAS_LIMIT)},
-            hex(block),
+            hex(int(block)),
         ]
         return rpc_args
 

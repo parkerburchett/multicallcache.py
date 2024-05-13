@@ -50,21 +50,20 @@ def save_data(data: list[CallRawData]) -> None:
     # Convert the CallRawData objects to the format required for the database
     list_of_values_to_cache = [c.convert_to_format_to_save_in_cache_db() for c in data]
 
-    # Connect to the SQLite database
-    conn = sqlite3.connect(CACHE_PATH)
-    cursor = conn.cursor()
+    with sqlite3.connect(CACHE_PATH) as conn:
+        cursor = conn.cursor()
 
-    # Bulk insert using executemany
-    cursor.executemany(
-        """
-        INSERT INTO multicallCache (callId, target, signature, argumentsAsStr, argumentsAsPickle, block, chainId, success, response)
-        VALUES (?, ?, ?, ?, ?, ?, ? , ?)
-        ON CONFLICT(callId) DO NOTHING;
-        """,
-        list_of_values_to_cache,
-    )
-    conn.commit()
-    conn.close()
+        # Bulk insert using executemany
+        cursor.executemany(
+            """
+            INSERT INTO multicallCache (callId, target, signature, argumentsAsStr, argumentsAsPickle, block, chainId, success, response)
+            VALUES (?, ?, ?, ?, ?, ?, ? , ?, ?)
+            ON CONFLICT(callId) DO NOTHING;
+            """,
+            list_of_values_to_cache,
+        )
+        conn.commit()
+    pass
 
 
 def get_data_from_disk(calls: list[Call], blocks: list[int]) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -84,9 +83,6 @@ def get_data_from_disk(calls: list[Call], blocks: list[int]) -> tuple[pd.DataFra
     # TODO look for optimizations
     call_ids_not_already_found = set(empty_df["callId"]).difference(existing_df["callId"])
     not_found_df = empty_df[empty_df["callId"].isin(call_ids_not_already_found)]
-
-    print("existingdf", existing_df.columns)
-    print("not_found_df", not_found_df.columns)
 
     return existing_df, not_found_df
 
