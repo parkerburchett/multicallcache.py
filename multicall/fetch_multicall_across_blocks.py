@@ -8,7 +8,7 @@ from web3 import Web3
 from aiolimiter import AsyncLimiter
 
 
-from multicall.call import Call, REVERTED_UNKNOWN_MESSAGE
+from multicall.call import Call
 from multicall.multicall import Multicall
 from multicall.utils import flatten, time_function
 from multicall.cache import save_data, get_data_from_disk

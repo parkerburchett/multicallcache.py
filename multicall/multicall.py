@@ -1,8 +1,6 @@
 from web3 import Web3
 import aiohttp
 from aiolimiter import AsyncLimiter
-import hashlib
-import pandas as pd
 import pickle
 
 from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE

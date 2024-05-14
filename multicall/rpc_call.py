@@ -32,6 +32,6 @@ def sync_rpc_eth_call(w3: HTTPProvider, rpc_args):
 
 async def _single_client_session_rpc_eth_call(w3: HTTPProvider, rpc_args):
     rate_limiter = AsyncLimiter(max_rate=1, time_period=1)  # 1 call/second
-    
+
     async with aiohttp.ClientSession() as session:
         return await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)

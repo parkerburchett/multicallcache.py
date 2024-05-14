@@ -7,7 +7,6 @@ import random
 import string
 import multiprocessing
 from multiprocessing import Pool
-import time
 import pickle
 
 CACHE_PATH = "cache_db.sqlite"  # TODO move to .env file.

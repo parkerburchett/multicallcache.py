@@ -1,9 +1,7 @@
-import pandas as pd
-import pytest
 
 from multicall.fetch_multicall_across_blocks import fetch_save_and_return
 
-from helpers import w3, weth_bal, usdc_bal, invalid_function, target_has_no_code, test_data_path, weth_bal2
+from helpers import w3, weth_bal, usdc_bal, invalid_function, target_has_no_code, weth_bal2
 
 
 def test_fetch_save_and_return():
@@ -13,8 +11,9 @@ def test_fetch_save_and_return():
 
     print("first go")
     df = fetch_save_and_return([*calls, weth_bal2], blocks, w3, 10)
+    print(df.head())
 
     print("second go")
     df = fetch_save_and_return([*calls, weth_bal2], blocks, w3, 10)
 
-    pass
+    print(df.head())
