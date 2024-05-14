@@ -10,10 +10,9 @@ from multicall.signature import Signature
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
-# TODO Only have a single revert message. maybe? idk
 CALL_FAILED_REVERT_MESSAGE = "reverted_call_failed"
 NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
-REVERTED_UNKNOWN_MESSAGE = "reverted_not_sure_why"
+REVERTED_UNKNOWN_MESSAGE = "REVERTED"
 
 
 class HandlingFunctionFailed(Exception):
@@ -70,7 +69,7 @@ class Call:
         self.signature = Signature(signature)
         self.arguments = arguments
         self.calldata = self.signature.encode_data(self.arguments)
-        self.chain_id = "1"
+        self.chain_id = "1"  # hardcode for Ethereum
 
     def to_rpc_call_args(self, block_id: int | str):
         """Convert this call into the format to send to a rpc node api request"""
@@ -107,7 +106,6 @@ class Call:
         return label_to_output
 
     def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, Any]:
-        # not optimized for speed, only use for testing that your calls work
         rpc_args = self.to_rpc_call_args(block_id)
         raw_bytes_output = w3.eth.call(*rpc_args)
         label_to_output = self.decode_output(raw_bytes_output)
@@ -115,8 +113,8 @@ class Call:
 
     def to_id(self, block: int) -> bytes:
         if not isinstance(block, int):
-            # TODO add check if block is finalized. wihtout making lots of needless calls
-            raise ValueError("cannot get a call id without a block as an int ")
+            raise ValueError("Must define a block to make a call ID")
+
         call_id = (
             self.chain_id
             + " "

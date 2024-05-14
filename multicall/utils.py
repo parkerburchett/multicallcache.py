@@ -25,6 +25,7 @@ def chunks(lst: List, n: int):
 
 
 @eth_retry.auto_retry
+# TODO, this should be hardcoded and updated with PRs
 def chain_id(w3: Web3) -> int:
     """
     Returns chain id for an instance of Web3. Helps save repeat calls to node.
@@ -63,7 +64,7 @@ def state_override_supported(w3: Web3) -> bool:
 
 def time_function(func):
     """
-    Decorator that measures and prints the execution time of a function.
+    Decorator that measures and prints the execution time of a non-async function.
     """
 
     def wrapper(*args, **kwargs):

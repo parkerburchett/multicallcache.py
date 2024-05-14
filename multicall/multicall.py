@@ -1,8 +1,6 @@
 from web3 import Web3
 import aiohttp
 from aiolimiter import AsyncLimiter
-import hashlib
-import pandas as pd
 import pickle
 
 from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
@@ -97,8 +95,6 @@ class Multicall:
 
     def to_rpc_call_args(self, block: int):
         """Convert this multicall into the format required fo for a rpc node api request"""
-        if not isinstance(block, int):
-            raise ValueError("block must be an int", type(block), block)
         rpc_args = [
             {"to": self.multicall_address, "data": self.calldata, "gas": hex(GAS_LIMIT)},
             hex(int(block)),
@@ -175,7 +171,7 @@ class Multicall:
         label_to_output = {}
         for data in call_raw_data:
             if data.success is True:
-                single_call_label_to_output = data.call.decode_output(data.response_bytes)
+                single_call_label_to_output = data.call.decode_output(data.response)
                 label_to_output.update(single_call_label_to_output)
             else:
                 for name in data.call.data_labels:
