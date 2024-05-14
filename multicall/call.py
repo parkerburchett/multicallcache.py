@@ -10,13 +10,15 @@ from multicall.signature import Signature
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
+# TODO Only have a single revert message. maybe? idk
 CALL_FAILED_REVERT_MESSAGE = "reverted_call_failed"
 NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
+REVERTED_UNKNOWN_MESSAGE = "reverted_not_sure_why"
 
 
 class HandlingFunctionFailed(Exception):
     def __init__(self, handling_function: Callable, decoded_value: Any, exception: Exception):
-        function_source_code = inspect.getsource(handling_function) # 
+        function_source_code = inspect.getsource(handling_function)  #
         super().__init__(
             f"""handling_function raised an exception
         
@@ -128,5 +130,5 @@ class Call:
         )
 
         hash_object = hashlib.sha256()
-        hash_object.update(call_id.encode('utf-8'))
+        hash_object.update(call_id.encode("utf-8"))
         return hash_object.digest()
