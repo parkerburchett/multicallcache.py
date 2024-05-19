@@ -84,6 +84,29 @@ def delete_call(call: Call, block: int) -> bool:
             return False  # No row was deleted, possibly because it did not exist
 
 
+def isCached(call: Call, block: int) -> bool:
+    """return bool -> we have this"""
+
+    call_id = call.to_id(block)
+
+    with sqlite3.connect(CACHE_PATH) as conn:
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT success, response
+            FROM multicallCache
+            WHERE callId = ?
+            """,
+            (call_id,),
+        )
+        result = cursor.fetchone()
+        if result:
+            return True
+        else:
+            return False
+
+
 def get_one_value(call: Call, block: int) -> tuple[bool, bytes] | None:
     """run one call and return success and block or None if the call is not indexed"""
 
