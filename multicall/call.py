@@ -4,9 +4,13 @@ import hashlib
 import inspect
 
 from eth_utils import to_checksum_address
-from web3 import Web3
+from web3 import Web3, exceptions
 
+# from multicall.cache import get_one_value # circular import issues
 from multicall.signature import Signature
+
+
+# what does a failed call look like?
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
@@ -106,10 +110,34 @@ class Call:
         return label_to_output
 
     def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, Any]:
-        rpc_args = self.to_rpc_call_args(block_id)
-        raw_bytes_output = w3.eth.call(*rpc_args)
-        label_to_output = self.decode_output(raw_bytes_output)
-        return label_to_output
+        """Primary entry point, for fast naive use"""
+        # happy path
+
+        if isinstance(block_id, int):
+            # TODO this is for circular import issues, (call.py <-> cache.py)
+            # refactor these to not have circular imports or need to import here
+            from multicall.cache import get_one_value, isCached
+
+            already_cached = isCached(self, block_id)
+            # RPC call, TODO remove when not needed, make some assumptions
+            finalized_block = w3.eth.get_block("finalized").number
+            block_is_finalized = block_id < finalized_block
+
+            if block_is_finalized and not already_cached:
+                _save_data(w3, self, block_id)
+
+            success, raw_bytes_output = get_one_value(self, block_id)
+            if not success:
+                raise exceptions.ContractLogicError()
+            else:
+                return self.decode_output(raw_bytes_output)
+
+        else:
+            # TODO if if block id = finalized then it should be cached, but this code does not cache it
+            # not cached and it shouldn't be cached because block_id is not finalized
+            rpc_args = self.to_rpc_call_args(block_id)
+            raw_bytes_output = w3.eth.call(*rpc_args)  # might raise exceptions.ContractLogicError()
+            return self.decode_output(raw_bytes_output)
 
     def to_id(self, block: int) -> bytes:
         if not isinstance(block, int):
@@ -130,3 +158,18 @@ class Call:
         hash_object = hashlib.sha256()
         hash_object.update(call_id.encode("utf-8"))
         return hash_object.digest()
+
+
+# TODO, goal: fully abstract away the finalized block issue.
+
+
+def _save_data(w3: Web3, call: Call, block: int):
+    """Default speedy behavior assumes block is finalized on ETH,
+
+    1. If local: read disk, process, return
+    2. if not local: fetch, save to disk, read disk, process return
+
+    """
+    from multicall.fetch_multicall_across_blocks import simple_sequential_fetch_multicalls_across_blocks_and_save
+
+    simple_sequential_fetch_multicalls_across_blocks_and_save([call], [block], w3)

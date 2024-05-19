@@ -1,4 +1,3 @@
-
 from multicall.fetch_multicall_across_blocks import fetch_save_and_return
 
 from helpers import w3, weth_bal, usdc_bal, invalid_function, target_has_no_code, weth_bal2
