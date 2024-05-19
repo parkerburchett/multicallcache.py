@@ -57,7 +57,54 @@ def save_data(data: list[CallRawData]) -> None:
             list_of_values_to_cache,
         )
         conn.commit()
-    pass
+
+
+def delete_call(call: Call, block: int) -> bool:
+    """Delete a single call entry based on callId and return True if the operation was successful, False otherwise."""
+
+    call_id = call.to_id(block)
+
+    with sqlite3.connect(CACHE_PATH) as conn:
+        cursor = conn.cursor()
+
+        # Execute the delete statement
+        cursor.execute(
+            """
+            DELETE FROM multicallCache
+            WHERE callId = ?
+            """,
+            (call_id,),
+        )
+
+        # Check if the row was deleted
+        if cursor.rowcount > 0:
+            conn.commit()  # Commit the changes if the row was deleted
+            return True
+        else:
+            return False  # No row was deleted, possibly because it did not exist
+
+
+def get_one_value(call: Call, block: int) -> tuple[bool, bytes] | None:
+    """run one call and return success and block or None if the call is not indexed"""
+
+    call_id = call.to_id(block)
+
+    with sqlite3.connect(CACHE_PATH) as conn:
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT success, response
+            FROM multicallCache
+            WHERE callId = ?
+            """,
+            (call_id,),
+        )
+        result = cursor.fetchone()
+        if result:
+            return (result[0], result[1])  # success, rawBytes Response
+        else:
+            return None
 
 
 @time_function

@@ -4,9 +4,13 @@ import hashlib
 import inspect
 
 from eth_utils import to_checksum_address
-from web3 import Web3
+from web3 import Web3, exceptions
 
+# from multicall.cache import get_one_value # circular import issues
 from multicall.signature import Signature
+
+
+# what does a failed call look like?
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
@@ -105,11 +109,25 @@ class Call:
             label_to_output[label] = handling_function(decoded_value)
         return label_to_output
 
-    def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, Any]:
+    def __call__(self, w3: Web3, block_id: int | str = "latest", check_local_first: bool = True) -> dict[str, Any]:
+        # TODO ugly make aesthetic 
+        if check_local_first and isinstance(block_id, int):
+            from multicall.cache import get_one_value
+
+            # TODO this is for circular import issues, (call.py <-> cache.py)
+            # refactor these to not have circular imports or need to import here
+            result = get_one_value(self, block_id)
+            if result is not None:
+                success, raw_bytes_output = result
+                if not success:
+                    raise exceptions.ContractLogicError()
+                    
+                return self.decode_output(raw_bytes_output)
+
         rpc_args = self.to_rpc_call_args(block_id)
         raw_bytes_output = w3.eth.call(*rpc_args)
-        label_to_output = self.decode_output(raw_bytes_output)
-        return label_to_output
+
+        return self.decode_output(raw_bytes_output)
 
     def to_id(self, block: int) -> bytes:
         if not isinstance(block, int):
