@@ -120,7 +120,8 @@ class Call:
 
             already_cached = isCached(self, block_id)
             # RPC call, TODO remove when not needed, make some assumptions
-            block_is_finalized = block_id < w3.eth.get_block("finalized")
+            finalized_block = w3.eth.get_block("finalized").number
+            block_is_finalized = block_id < finalized_block
 
             if block_is_finalized and not already_cached:
                 _save_data(w3, self, block_id)
@@ -134,7 +135,6 @@ class Call:
         else:
             # TODO if if block id = finalized then it should be cached, but this code does not cache it
             # not cached and it shouldn't be cached because block_id is not finalized
-
             rpc_args = self.to_rpc_call_args(block_id)
             raw_bytes_output = w3.eth.call(*rpc_args)  # might raise exceptions.ContractLogicError()
             return self.decode_output(raw_bytes_output)
