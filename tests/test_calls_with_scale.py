@@ -14,4 +14,3 @@ from multicall.fetch_multicall_across_blocks import async_fetch_multicalls_acros
 async def make_a_bunch_of_the_same_call_at_many_blocks():
     blocks = [19948055 - i for i in range(100)]
     await async_fetch_multicalls_across_blocks_and_save([weth_bal], blocks, w3, 1, save=False)
-

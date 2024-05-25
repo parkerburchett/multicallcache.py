@@ -5,7 +5,7 @@ from web3 import Web3
 from multicall.multicall import Multicall
 from multicall.call import Call, CALL_FAILED_REVERT_MESSAGE, NOT_A_CONTRACT_REVERT_MESSAGE
 
-# TODO: not sure how many methods to split the tests into
+# note: does not touch db
 
 load_dotenv()
 
@@ -52,7 +52,8 @@ def test_multicall():
         "totalSupply": 1224558113282286488129522,
         "block": BLOCK_TO_CHECK,
     }
-    data = multicall_single_return_values(w3, BLOCK_TO_CHECK)
+
+    data = multicall_single_return_values(w3, BLOCK_TO_CHECK) # default behavior does not cache
 
     assert data == single_return_values_expected_data, "Multicall, multiple calls, each returning a single value failed"
 
@@ -159,3 +160,4 @@ def test_multicall():
     assert (
         multicall_with_call_to_address_without_code(w3, BLOCK_TO_CHECK) == expected_values_combination
     ), "multicall_with_call_to_address_without_code failed"
+
