@@ -55,7 +55,7 @@ def simple_sequential_fetch_multicalls_across_blocks_and_save(calls: list[Call],
 
 
 async def async_fetch_multicalls_across_blocks_and_save(
-    calls: list[Call], blocks: list[int], w3: Web3, rate_limit_per_second: int
+    calls: list[Call], blocks: list[int], w3: Web3, rate_limit_per_second: int, save: bool = True
 ) -> None:
 
     multicall = Multicall(calls)
@@ -65,8 +65,11 @@ async def async_fetch_multicalls_across_blocks_and_save(
     async with aiohttp.ClientSession(timeout=timeout) as session:
         tasks = [multicall.async_make_each_call_to_raw_call_data(w3, block, session, rate_limiter) for block in blocks]
         call_raw_data = await asyncio.gather(*tasks)
+
     call_raw_data = flatten(call_raw_data)
-    save_data(call_raw_data)
+
+    if save:
+        save_data(call_raw_data)
 
 
 @time_function
