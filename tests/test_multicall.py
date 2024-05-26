@@ -53,7 +53,7 @@ def test_multicall():
         "block": BLOCK_TO_CHECK,
     }
 
-    data = multicall_single_return_values(w3, BLOCK_TO_CHECK) # default behavior does not cache
+    data = multicall_single_return_values(w3, BLOCK_TO_CHECK)  # default behavior does not cache
 
     assert data == single_return_values_expected_data, "Multicall, multiple calls, each returning a single value failed"
 
@@ -160,4 +160,3 @@ def test_multicall():
     assert (
         multicall_with_call_to_address_without_code(w3, BLOCK_TO_CHECK) == expected_values_combination
     ), "multicall_with_call_to_address_without_code failed"
-

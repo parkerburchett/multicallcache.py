@@ -4,6 +4,7 @@ import aiohttp
 
 import pandas as pd
 from web3 import Web3
+import numpy as np
 
 from aiolimiter import AsyncLimiter
 
@@ -55,21 +56,38 @@ def simple_sequential_fetch_multicalls_across_blocks_and_save(calls: list[Call],
 
 
 async def async_fetch_multicalls_across_blocks_and_save(
-    calls: list[Call], blocks: list[int], w3: Web3, rate_limit_per_second: int, save: bool = True
-) -> None:
+    calls: list[Call],
+    blocks: list[int],
+    w3: Web3,
+    rate_limit_per_second: int,
+    save: bool = True,
+    max_calls_per_rpc_call: int = 3_000,
+):
+    num_calls = len(calls)
+    if num_calls < max_calls_per_rpc_call:
+        # base case
+        multicalls = [Multicall(calls)]
+    else:
+        chunks_of_calls = np.array_split(calls, (len(calls) // max_calls_per_rpc_call) + 1)
+        multicalls = [Multicall(list(c)) for c in chunks_of_calls]
 
-    multicall = Multicall(calls)
     rate_limiter = AsyncLimiter(rate_limit_per_second, time_period=1)  # 1 second
     timeout = aiohttp.ClientTimeout(total=10)
-
+    tasks = []
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        tasks = [multicall.async_make_each_call_to_raw_call_data(w3, block, session, rate_limiter) for block in blocks]
+        for multicall in multicalls:
+            tasks.extend(
+                [multicall.async_make_each_call_to_raw_call_data(w3, block, session, rate_limiter) for block in blocks]
+            )
+
         call_raw_data = await asyncio.gather(*tasks)
 
     call_raw_data = flatten(call_raw_data)
 
     if save:
         save_data(call_raw_data)
+    else:
+        return call_raw_data
 
 
 @time_function
