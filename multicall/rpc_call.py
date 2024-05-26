@@ -28,6 +28,9 @@ async def async_rpc_eth_call(w3: HTTPProvider, rpc_args, session: aiohttp.Client
                 if response.status == 200:
                     data = await response.json()
                     return bytes.fromhex(data["result"][2:])
+                elif response.status == 413:
+                    print("the payload is too large, you need to break up the calls")
+                    response.raise_for_status()
 
                 elif (response.status == 429) and (attempt < RETRY_COUNT - 1):
                     print(

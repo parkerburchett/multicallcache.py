@@ -40,6 +40,11 @@ COLUMNS = [
 ]
 
 
+def return_cleaned_data_as_df(data: list[CallRawData]) -> pd.DataFrame:
+    #list_of_values_to_cache = [c.convert_to_format_to_save_in_cache_db() for c in data]
+    pass
+
+
 def save_data(data: list[CallRawData]) -> None:
     # Convert the CallRawData objects to the format required for the database
     list_of_values_to_cache = [c.convert_to_format_to_save_in_cache_db() for c in data]
