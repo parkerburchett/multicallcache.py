@@ -6,9 +6,11 @@ test cases
 """
 
 
-from helpers import w3, to_str, weth
+from helpers import to_str, weth
 from multicall.call import Call
 import pandas as pd
+from multicall.constants import W3
+
 from multicall.fetch_multicall_across_blocks import async_fetch_multicalls_across_blocks_and_save
 import pytest
 
@@ -19,7 +21,7 @@ async def test_break_up_many_calls_into_several_multicall():
     # TODO consider putting the addresses in a parquet for speed
     calls = [Call(weth, "balanceOf(address)(uint256)", (a), a, to_str) for a in a_bunch_of_addresses]
     data = await async_fetch_multicalls_across_blocks_and_save(
-        calls, [18_000_000], w3, 1, save=False, max_calls_per_rpc_call=30
+        calls, [18_000_000], W3, 1, save=False, max_calls_per_rpc_call=30
     )
     assert (
         data[0].response

@@ -1,11 +1,6 @@
-import os
-from dotenv import load_dotenv
-from web3 import Web3
 from multicall.call import Call
 from pathlib import Path
 
-load_dotenv()
-w3 = Web3(Web3.HTTPProvider(os.environ.get("ALCHEMY_URL")))
 test_data_path = Path(__file__).parent / "test_data"
 
 uniswap_v3_usdc_weth_pool = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"

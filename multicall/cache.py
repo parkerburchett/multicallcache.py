@@ -1,6 +1,3 @@
-from multicall.call import Call
-from multicall.multicall import CallRawData, Multicall
-from multicall.utils import time_function, flatten
 import sqlite3
 import pandas as pd
 import random
@@ -8,10 +5,14 @@ import string
 import multiprocessing
 from multiprocessing import Pool
 import pickle
+from pathlib import Path
+import os
 
-CACHE_PATH = "cache_db.sqlite"  # TODO move to .env file.
+from multicall.call import Call
+from multicall.multicall import CallRawData, Multicall
+from multicall.utils import time_function, flatten
+from multicall.constants import CACHE_PATH
 
-# TODO saving data as pythonic as well for ease of sql querying after the fact
 
 """
 Notes on speed,
@@ -41,7 +42,7 @@ COLUMNS = [
 
 
 def return_cleaned_data_as_df(data: list[CallRawData]) -> pd.DataFrame:
-    #list_of_values_to_cache = [c.convert_to_format_to_save_in_cache_db() for c in data]
+    # list_of_values_to_cache = [c.convert_to_format_to_save_in_cache_db() for c in data]
     pass
 
 
@@ -163,6 +164,7 @@ def fetch_all_data():
         return pd.read_sql_query("SELECT * FROM multicallCache", conn)
 
 
+# TODO move these to
 def _generate_random_string(length: int) -> str:
     """Helper function to make mock data"""
     return "".join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -211,3 +213,33 @@ def insert_random_rows(n: int) -> None:
         )
 
         conn.commit()
+
+
+def create_db(db_path: Path):
+    if os.path.exists(db_path):
+        raise ValueError(f"cannot create a db at {db_path=} because it already exists")
+
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+    CREATE TABLE IF NOT EXISTS multicallCache (
+        callId BLOB PRIMARY KEY,
+        target TEXT,
+        signature TEXT,
+        argumentsAsStr TEXT,
+        argumentsAsPickle bytes,
+        block INTEGER,
+        chainId INTEGER,
+        success BOOLEAN,
+        response BLOB
+    )
+    """
+        )
+
+
+def delete_db(db_path: Path):
+    if os.path.exists(db_path):
+        os.remove(db_path)
+    else:
+        raise ValueError(f"Cannot remove a db at {db_path=} because it does not exist exists")

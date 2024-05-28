@@ -9,7 +9,7 @@ from multicall.call import Call, NOT_A_CONTRACT_REVERT_MESSAGE
 load_dotenv()
 
 BLOCK_TO_CHECK = 18_000_000
-w3 = Web3(Web3.HTTPProvider(os.environ.get("ALCHEMY_URL")))
+W3 = Web3(Web3.HTTPProvider(os.environ.get("ALCHEMY_URL")))
 
 cbETH = "0xBe9895146f7AF43049ca1c1AE358B0541Ea49704"
 cbETH_holder = "0xED1F7bb04D2BA2b6EbE087026F03C96Ea2c357A8"
@@ -27,13 +27,13 @@ def test_single_return_value():
         "balanceOf",
         identify_function,
     )
-    assert balance_of_call(w3, BLOCK_TO_CHECK) == {"balanceOf": 32431674561658258136000}, "balance_of_call failed"
+    assert balance_of_call(W3, BLOCK_TO_CHECK) == {"balanceOf": 32431674561658258136000}, "balance_of_call failed"
 
     name_call = Call(cbETH, "name()(string)", (), "name", identify_function)
-    assert name_call(w3, BLOCK_TO_CHECK) == {"name": "Coinbase Wrapped Staked ETH"}, "name_call failed"
+    assert name_call(W3, BLOCK_TO_CHECK) == {"name": "Coinbase Wrapped Staked ETH"}, "name_call failed"
 
     total_supply_call = Call(cbETH, "totalSupply()(uint256)", (), "totalSupply", identify_function)
-    assert total_supply_call(w3, BLOCK_TO_CHECK) == {
+    assert total_supply_call(W3, BLOCK_TO_CHECK) == {
         "totalSupply": 1224558113282286488129522
     }, "total_supply_call failed"
 
@@ -53,7 +53,7 @@ def test_multiple_return_values():
         "pauseWindowEndTime": 1626633407,
         "bufferPeriodEndTime": 1629225407,
     }
-    assert vault_get_paused_state(w3, BLOCK_TO_CHECK) == expected, "vault_get_paused_state failed"
+    assert vault_get_paused_state(W3, BLOCK_TO_CHECK) == expected, "vault_get_paused_state failed"
 
     pool_id = bytes.fromhex("1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112")
     vault_get_pool_tokens = Call(
@@ -72,7 +72,7 @@ def test_multiple_return_values():
         "balances": (10218807022150565266010, 12892757262517014259928),
         "lastChangeBlock": 17999794,
     }
-    assert vault_get_pool_tokens(w3, BLOCK_TO_CHECK) == expected, "vault_get_pool_tokens failed"
+    assert vault_get_pool_tokens(W3, BLOCK_TO_CHECK) == expected, "vault_get_pool_tokens failed"
 
 
 def test_non_existent_function_call():
@@ -83,7 +83,7 @@ def test_non_existent_function_call():
     with pytest.raises(web3.exceptions.ContractLogicError):
         # we only know that thisFunctionDoesNotExist() doesn't exist when we try to call it.
         # so it succeeded top build but reverts on the call
-        bad_function_signature_call(w3, BLOCK_TO_CHECK)
+        bad_function_signature_call(W3, BLOCK_TO_CHECK)
 
 
 def test_call_to_an_address_without_code():
@@ -96,7 +96,7 @@ def test_call_to_an_address_without_code():
         "thisFunctionDoesNotExist",
         identify_function,
     )
-    assert call_to_address_without_code(w3, BLOCK_TO_CHECK) == {
+    assert call_to_address_without_code(W3, BLOCK_TO_CHECK) == {
         "thisFunctionDoesNotExist": NOT_A_CONTRACT_REVERT_MESSAGE
     }, "failed Call to address without code"
 
