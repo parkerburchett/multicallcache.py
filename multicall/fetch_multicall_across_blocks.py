@@ -77,7 +77,9 @@ def fetch_save_and_return(
     return processed_block_wise_data_df
 
 
-def simple_sequential_fetch_multicalls_across_blocks_and_save(calls: list[Call], blocks: list[int], w3: Web3) -> None:
+def simple_sequential_fetch_multicalls_across_blocks_and_save(
+    calls: list[Call], blocks: list[int], w3: Web3, cache_path: Path
+) -> None:
     """make and save all the data from calls, blocks"""
 
     multicall = Multicall(calls)
@@ -86,7 +88,7 @@ def simple_sequential_fetch_multicalls_across_blocks_and_save(calls: list[Call],
         data = multicall.make_external_calls_to_raw_data(w3, block_id)
         call_raw_data.extend(data)
 
-    save_data(call_raw_data)
+    save_data(call_raw_data, cache_path)
 
 
 async def async_fetch_multicalls_across_blocks_and_save(

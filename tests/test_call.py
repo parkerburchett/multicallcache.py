@@ -38,6 +38,9 @@ def test_single_return_value():
     }, "total_supply_call failed"
 
 
+test_single_return_value()
+
+
 def test_multiple_return_values():
     BALANCER_VAULT = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
 

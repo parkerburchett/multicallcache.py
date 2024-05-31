@@ -1,10 +1,5 @@
 import sqlite3
 import pandas as pd
-import random
-import string
-import multiprocessing
-from multiprocessing import Pool
-import pickle
 from pathlib import Path
 import os
 
@@ -164,8 +159,8 @@ def fetch_all_data():
         return pd.read_sql_query("SELECT * FROM multicallCache", conn)
 
 
-
 def create_db(db_path: Path):
+    # TODO broken, still need to run notebook
     if os.path.exists(db_path):
         raise ValueError(f"cannot create a db at {db_path=} because it already exists")
 
@@ -173,7 +168,7 @@ def create_db(db_path: Path):
         cursor = conn.cursor()
         cursor.execute(
             """
-    CREATE TABLE IF NOT EXISTS multicallCache (
+    CREATE TABLE multicallCache (
         callId BLOB PRIMARY KEY,
         target TEXT,
         signature TEXT,
@@ -186,6 +181,7 @@ def create_db(db_path: Path):
     )
     """
         )
+        conn.commit()
 
 
 def delete_db(db_path: Path):
@@ -193,3 +189,8 @@ def delete_db(db_path: Path):
         os.remove(db_path)
     else:
         raise ValueError(f"Cannot remove a db at {db_path=} because it does not exist exists")
+
+
+# # create the db if it does not exist, run on import, ugly move to a place that makes more sense
+# if not os.path.exists(CACHE_PATH):
+#     create_db(CACHE_PATH)

@@ -7,6 +7,7 @@
 
 from multicall.cache import isCached
 from helpers import weth_bal
+from multicall.constants import CACHE_PATH
 
 
 def test_cached_something_successfully():
@@ -15,4 +16,4 @@ def test_cached_something_successfully():
 
     # make this calla nd assert that it is cached
 
-    assert not isCached(weth_bal, 18_000_000)
+    assert not isCached(weth_bal, 18_000_000, CACHE_PATH)

@@ -1,5 +1,6 @@
 from typing import Any, Callable, Tuple
 import hashlib
+from pathlib import Path
 
 import inspect
 
@@ -8,7 +9,7 @@ from web3 import Web3, exceptions
 
 # from multicall.cache import get_one_value # circular import issues
 from multicall.signature import Signature
-
+from multicall.constants import CACHE_PATH
 
 # what does a failed call look like?
 
@@ -129,25 +130,25 @@ class Call:
         hash_object.update(call_id.encode("utf-8"))
         return hash_object.digest()
 
-    def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, Any]:
+    def __call__(self, w3: Web3, block_id: int | str = "latest", cache="default") -> dict[str, Any]:
         """Primary entry point, for fast naive use"""
         # happy path
-        # reaches out to cache path
+        cache_path = CACHE_PATH if cache == "default" else cache
 
         if isinstance(block_id, int):
             # TODO this is for circular import issues, (call.py <-> cache.py)
             # refactor these to not have circular imports or need to import here
             from multicall.cache import get_one_value, isCached
 
-            already_cached = isCached(self, block_id)
+            already_cached = isCached(self, block_id, cache_path)
             # RPC call, TODO remove when not needed, make some assumptions
             finalized_block = w3.eth.get_block("finalized").number
             block_is_finalized = block_id < finalized_block
 
             if block_is_finalized and not already_cached:
-                _save_data(w3, self, block_id)
+                _save_data(w3, self, block_id, cache_path)
 
-            success, raw_bytes_output = get_one_value(self, block_id)
+            success, raw_bytes_output = get_one_value(self, block_id, cache_path)
             if not success:
                 raise exceptions.ContractLogicError()
             else:
@@ -164,7 +165,7 @@ class Call:
 # TODO, goal: fully abstract away the finalized block issue.
 
 
-def _save_data(w3: Web3, call: Call, block: int):
+def _save_data(w3: Web3, call: Call, block: int, cache_path: Path):
     """Default speedy behavior assumes block is finalized on ETH,
 
     1. if we already have the data
@@ -173,4 +174,4 @@ def _save_data(w3: Web3, call: Call, block: int):
     """
     from multicall.fetch_multicall_across_blocks import simple_sequential_fetch_multicalls_across_blocks_and_save
 
-    simple_sequential_fetch_multicalls_across_blocks_and_save([call], [block], w3)
+    simple_sequential_fetch_multicalls_across_blocks_and_save([call], [block], w3, cache_path)
