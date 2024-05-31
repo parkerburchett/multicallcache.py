@@ -5,7 +5,6 @@ test cases
 
 """
 
-
 from helpers import to_str, weth
 from multicall.call import Call
 import pandas as pd

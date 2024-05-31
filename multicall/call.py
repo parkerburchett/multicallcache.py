@@ -109,9 +109,30 @@ class Call:
             label_to_output[label] = handling_function(decoded_value)
         return label_to_output
 
+    def to_id(self, block: int) -> bytes:
+        if not isinstance(block, int):
+            raise ValueError("Must define a block to make a call ID")
+
+        call_id = (
+            self.chain_id
+            + " "
+            + self.target
+            + " "
+            + self.signature.signature
+            + " "
+            + str(self.arguments)
+            + " "
+            + str(block)
+        )
+
+        hash_object = hashlib.sha256()
+        hash_object.update(call_id.encode("utf-8"))
+        return hash_object.digest()
+
     def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, Any]:
         """Primary entry point, for fast naive use"""
         # happy path
+        # reaches out to cache path
 
         if isinstance(block_id, int):
             # TODO this is for circular import issues, (call.py <-> cache.py)
@@ -139,26 +160,6 @@ class Call:
             raw_bytes_output = w3.eth.call(*rpc_args)  # might raise exceptions.ContractLogicError()
             return self.decode_output(raw_bytes_output)
 
-    def to_id(self, block: int) -> bytes:
-        if not isinstance(block, int):
-            raise ValueError("Must define a block to make a call ID")
-
-        call_id = (
-            self.chain_id
-            + " "
-            + self.target
-            + " "
-            + self.signature.signature
-            + " "
-            + str(self.arguments)
-            + " "
-            + str(block)
-        )
-
-        hash_object = hashlib.sha256()
-        hash_object.update(call_id.encode("utf-8"))
-        return hash_object.digest()
-
 
 # TODO, goal: fully abstract away the finalized block issue.
 
@@ -166,8 +167,8 @@ class Call:
 def _save_data(w3: Web3, call: Call, block: int):
     """Default speedy behavior assumes block is finalized on ETH,
 
-    1. If local: read disk, process, return
-    2. if not local: fetch, save to disk, read disk, process return
+    1. if we already have the data
+    2. if not local: fetch, save to disk
 
     """
     from multicall.fetch_multicall_across_blocks import simple_sequential_fetch_multicalls_across_blocks_and_save

@@ -101,18 +101,6 @@ class Multicall:
         ]
         return rpc_args
 
-    def __call__(self, w3: Web3, block: int):
-        rpc_args = self.to_rpc_call_args(block)
-        raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
-        label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
-        return label_to_output
-
-    async def async_call(self, w3: Web3, block: int, session: aiohttp.ClientSession, rate_limiter: AsyncLimiter):
-        rpc_args = self.to_rpc_call_args(block)
-        raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
-        label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
-        return label_to_output
-
     def to_call_ids(self, block: int) -> list[str]:
         """Convert all the calls, block ot their call_ids"""
         call_ids = [c.to_id(block) for c in self.calls]
@@ -120,17 +108,6 @@ class Multicall:
 
     def to_list_of_empty_records(self, block: int):
         return list([CallRawData(call, block, None, None).to_record() for call in self.calls])
-
-    def make_external_calls_to_raw_data(self, w3: Web3, block: int) -> list[CallRawData]:
-        rpc_args = self.to_rpc_call_args(block)
-        raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
-        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
-        records = []
-        for call, success_bytes_tuple in zip(self.calls, decoded_outputs):
-            success, response = success_bytes_tuple
-            data = CallRawData(call, block, success, response)
-            records.append(data)
-        return records
 
     def process_raw_bytes_output(self, raw_bytes_output, block):
         decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
@@ -144,21 +121,12 @@ class Multicall:
         ids = [call.to_id(block) for call in self.calls]
         return ids
 
-    def make_each_call_to_raw_call_data(self, w3: Web3, block: int) -> list[CallRawData]:
-        rpc_args = self.to_rpc_call_args(block)
-        raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
-        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
-        call_raw_data_list = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
-        return call_raw_data_list
-
-    async def async_make_each_call_to_raw_call_data(
-        self, w3: Web3, block: int, session: aiohttp.ClientSession, rate_limiter: AsyncLimiter
-    ):
-        rpc_args = self.to_rpc_call_args(block)
-        raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
-        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
-        call_raw_data_list = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
-        return call_raw_data_list
+    # def make_each_call_to_raw_call_data(self, w3: Web3, block: int) -> list[CallRawData]:
+    #     rpc_args = self.to_rpc_call_args(block)
+    #     raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
+    #     decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+    #     call_raw_data_list = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
+    #     return call_raw_data_list
 
     def _decoded_outputs_to_call_raw_data(self, decoded_outputs, block):
         call_raw_data = []
@@ -177,4 +145,37 @@ class Multicall:
                 for name in data.call.data_labels:
                     label_to_output[name] = CALL_FAILED_REVERT_MESSAGE
 
+        return label_to_output
+
+    ############################### external calls #####################################################3
+    async def async_make_each_call_to_raw_call_data(
+        self, w3: Web3, block: int, session: aiohttp.ClientSession, rate_limiter: AsyncLimiter
+    ):
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
+        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+        call_raw_data_list = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
+        return call_raw_data_list
+
+    def make_external_calls_to_raw_data(self, w3: Web3, block: int) -> list[CallRawData]:
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
+        decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
+        records = []
+        for call, success_bytes_tuple in zip(self.calls, decoded_outputs):
+            success, response = success_bytes_tuple
+            data = CallRawData(call, block, success, response)
+            records.append(data)
+        return records
+
+    def __call__(self, w3: Web3, block: int):
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
+        label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
+        return label_to_output
+
+    async def async_call(self, w3: Web3, block: int, session: aiohttp.ClientSession, rate_limiter: AsyncLimiter):
+        rpc_args = self.to_rpc_call_args(block)
+        raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
+        label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
         return label_to_output
