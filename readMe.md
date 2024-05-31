@@ -16,7 +16,7 @@
 - Add testing for blocks before multicall contracts where deployed. 
 - Minimize RPC calls for finalized blocks, maybe query finalized block at import time, and only update if asked to?
 - Add testing for caching behavior of `multicall.Call.__call__`. Make sure to delete cached data after testing.
-
+- in .`__call__()` first try to read from disk.
 ***
 
 ## Done

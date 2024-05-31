@@ -5,7 +5,7 @@ import aiohttp
 import pandas as pd
 from web3 import Web3
 import numpy as np
-
+from pathlib import Path
 from aiolimiter import AsyncLimiter
 
 
@@ -13,22 +13,56 @@ from multicall.call import Call
 from multicall.multicall import Multicall
 from multicall.utils import flatten, time_function
 from multicall.cache import save_data, get_data_from_disk
+from multicall.constants import CACHE_PATH
+import pandas as pd
+from pathlib import Path
+
+from multicall.call import Call
+from multicall.multicall import Multicall
+from multicall.utils import time_function, flatten
+from multicall.constants import CACHE_PATH
 
 
 @time_function
 def fetch_save_and_return(
-    calls: list[Call], blocks: list[int], w3: Web3, max_calls_per_second: int = 10
+    calls: list[Call],
+    blocks: list[int],
+    w3: Web3,
+    max_calls_per_second: int = 10,
+    cache="default",
+    max_calls_per_rpc_call: int = 3_000,
 ) -> pd.DataFrame:
-    # todo, calls, and blocks can be 0 make sure it works
-    found_df, not_found_df = get_data_from_disk(calls, blocks)
+    """
+    Primary Entry Point
+
+    Get all the data that already exists
+    externally fetch  and sve all the data that is missing
+    read entire saved data from disk and return it processed.
+    """
+
+    cache_path = CACHE_PATH if cache == "default" else cache
+
+    found_df, not_found_df = get_data_from_disk(calls, blocks, cache_path)
+    # TODO, test cases when either calls or blocks is empty, calls, and blocks can be 0 make sure it works
     print(f"first attempt    {found_df.shape=}      {not_found_df.shape=} \n")
     blocks_left = [int(b) for b in not_found_df["block"].unique()]
+    # todo consider wrapping this in a while loop? while len_blocks left > 0 ?
     if len(blocks_left) > 0:
         print(
             f"Some data not found, making {len(blocks_left)} external calls at a rate of {max_calls_per_second} call /second \n"
         )
-        asyncio.run(async_fetch_multicalls_across_blocks_and_save(calls, blocks, w3, max_calls_per_second))
-        found_df, not_found_df = get_data_from_disk(calls, blocks)
+        asyncio.run(
+            async_fetch_multicalls_across_blocks_and_save(
+                calls=calls,
+                blocks=blocks,
+                w3=w3,
+                rate_limit_per_second=max_calls_per_second,
+                cache_path=cache_path,
+                save=True,
+                max_calls_per_rpc_call=max_calls_per_rpc_call,
+            )
+        )
+        found_df, not_found_df = get_data_from_disk(calls, blocks, cache_path)
         print(f"Second attempt    {found_df.shape=}      {not_found_df.shape=} \n")
         pass
     else:
@@ -60,6 +94,7 @@ async def async_fetch_multicalls_across_blocks_and_save(
     blocks: list[int],
     w3: Web3,
     rate_limit_per_second: int,
+    cache_path: Path,
     save: bool = True,
     max_calls_per_rpc_call: int = 3_000,
 ):
@@ -71,7 +106,7 @@ async def async_fetch_multicalls_across_blocks_and_save(
         chunks_of_calls = np.array_split(calls, (len(calls) // max_calls_per_rpc_call) + 1)
         multicalls = [Multicall(list(c)) for c in chunks_of_calls]
 
-    rate_limiter = AsyncLimiter(rate_limit_per_second, time_period=1)  # 1 second
+    rate_limiter = AsyncLimiter(rate_limit_per_second, time_period=1)  # time_period= 1 -> 1 second
     timeout = aiohttp.ClientTimeout(total=10)
     tasks = []
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -85,7 +120,7 @@ async def async_fetch_multicalls_across_blocks_and_save(
     call_raw_data = flatten(call_raw_data)
 
     if save:
-        save_data(call_raw_data)
+        save_data(call_raw_data, cache_path)
     else:
         return call_raw_data
 
@@ -119,7 +154,7 @@ def _raw_bytes_data_df_to_processed_block_wise_data_df(
         processed_response: dict[str, any] = call.decode_output(raw_bytes_output)
 
         if block in processed_outputs:
-            processed_outputs[block].update(processed_response)
+            processed_outputs[block].update(processed_response)  # not cetrain on if update() is the right method here
         else:
             processed_outputs[block] = processed_response
 
