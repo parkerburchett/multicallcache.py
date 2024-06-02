@@ -36,3 +36,4 @@ Incidental goals:
 DEV
 - `pytest` to run the tests
 - `black .`  to run the linter
+- `ruff --fix` to run ruff

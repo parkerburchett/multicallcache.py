@@ -1,5 +1,6 @@
 from typing import Any, Callable, Tuple
 import hashlib
+from pathlib import Path
 
 import inspect
 
@@ -8,17 +9,17 @@ from web3 import Web3, exceptions
 
 # from multicall.cache import get_one_value # circular import issues
 from multicall.signature import Signature
+from multicall.constants import CACHE_PATH
 
-
-# what does a failed call look like?
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
-CALL_FAILED_REVERT_MESSAGE = "reverted_call_failed"
-NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
+CALL_FAILED_REVERT_MESSAGE = "REVERTED"
+NOT_A_CONTRACT_REVERT_MESSAGE = "REVERTED"  # TODO add the capacity to tell these apart
 REVERTED_UNKNOWN_MESSAGE = "REVERTED"
 
 
+# TODO add these to unit tests
 class HandlingFunctionFailed(Exception):
     def __init__(self, handling_function: Callable, decoded_value: Any, exception: Exception):
         function_source_code = inspect.getsource(handling_function)  #
@@ -35,7 +36,7 @@ class HandlingFunctionFailed(Exception):
 
 class ReturnDataAndHandlingFunctionLengthMismatch(Exception):
     def __init__(self, message):
-        self.message = message
+        self.message = message  # this doesn't seem like the right syntax
         super().__init__(self.message)
 
 
@@ -109,37 +110,8 @@ class Call:
             label_to_output[label] = handling_function(decoded_value)
         return label_to_output
 
-    def __call__(self, w3: Web3, block_id: int | str = "latest") -> dict[str, Any]:
-        """Primary entry point, for fast naive use"""
-        # happy path
-
-        if isinstance(block_id, int):
-            # TODO this is for circular import issues, (call.py <-> cache.py)
-            # refactor these to not have circular imports or need to import here
-            from multicall.cache import get_one_value, isCached
-
-            already_cached = isCached(self, block_id)
-            # RPC call, TODO remove when not needed, make some assumptions
-            finalized_block = w3.eth.get_block("finalized").number
-            block_is_finalized = block_id < finalized_block
-
-            if block_is_finalized and not already_cached:
-                _save_data(w3, self, block_id)
-
-            success, raw_bytes_output = get_one_value(self, block_id)
-            if not success:
-                raise exceptions.ContractLogicError()
-            else:
-                return self.decode_output(raw_bytes_output)
-
-        else:
-            # TODO if if block id = finalized then it should be cached, but this code does not cache it
-            # not cached and it shouldn't be cached because block_id is not finalized
-            rpc_args = self.to_rpc_call_args(block_id)
-            raw_bytes_output = w3.eth.call(*rpc_args)  # might raise exceptions.ContractLogicError()
-            return self.decode_output(raw_bytes_output)
-
     def to_id(self, block: int) -> bytes:
+        """A unique identifer of the immutable charactaristics of this call"""
         if not isinstance(block, int):
             raise ValueError("Must define a block to make a call ID")
 
@@ -159,17 +131,56 @@ class Call:
         hash_object.update(call_id.encode("utf-8"))
         return hash_object.digest()
 
+    def __call__(self, w3: Web3, block_id: int | str = "latest", cache="default") -> dict[str, Any]:
+        """Primary entry point, for fast naive use"""
+        # happy path
+        cache_path = CACHE_PATH if cache == "default" else cache
+
+        if isinstance(block_id, int):
+            # TODO this is for circular import issues, (call.py <-> cache.py)
+            # refactor these to not have circular imports or need to import here
+            from multicall.cache import get_isCached_success_raw_bytes_output_for_a_single_call
+
+            # step 1 if we already have it return it, most happy path, only 1 call
+            isCached, success, raw_bytes_output = get_isCached_success_raw_bytes_output_for_a_single_call(
+                self, block_id, cache_path
+            )
+            if isCached:
+                if success:
+                    return self.decode_output(raw_bytes_output)
+                else:
+                    raise exceptions.ContractLogicError()
+
+            if block_id < w3.eth.get_block("finalized").number:
+                _save_data(w3, self, block_id, cache_path)
+                # TODO gets external data, saves it, then reads it from disk
+                # one read is redundent, can remove
+                isCached, success, raw_bytes_output = get_isCached_success_raw_bytes_output_for_a_single_call(
+                    self, block_id, cache_path
+                )
+                if isCached:
+                    if success:
+                        return self.decode_output(raw_bytes_output)
+                    else:
+                        raise exceptions.ContractLogicError()
+
+            else:
+                # make a call and don't save the result
+                rpc_args = self.to_rpc_call_args(block_id)
+                raw_bytes_output = w3.eth.call(*rpc_args)  # might raise exceptions.ContractLogicError()
+                return self.decode_output(raw_bytes_output)
+
 
 # TODO, goal: fully abstract away the finalized block issue.
 
 
-def _save_data(w3: Web3, call: Call, block: int):
+def _save_data(w3: Web3, call: Call, block: int, cache_path: Path):
     """Default speedy behavior assumes block is finalized on ETH,
 
-    1. If local: read disk, process, return
-    2. if not local: fetch, save to disk, read disk, process return
+    1. if we already have the data
+    2. if not local: fetch, save to disk
 
     """
     from multicall.fetch_multicall_across_blocks import simple_sequential_fetch_multicalls_across_blocks_and_save
 
-    simple_sequential_fetch_multicalls_across_blocks_and_save([call], [block], w3)
+    simple_sequential_fetch_multicalls_across_blocks_and_save([call], [block], w3, cache_path)

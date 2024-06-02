@@ -1,17 +1,14 @@
-from multicall.call import Call
-from multicall.multicall import CallRawData, Multicall
-from multicall.utils import time_function, flatten
 import sqlite3
 import pandas as pd
-import random
-import string
-import multiprocessing
-from multiprocessing import Pool
-import pickle
+from pathlib import Path
+import os
 
-CACHE_PATH = "cache_db.sqlite"  # TODO move to .env file.
+from multicall.call import Call
+from multicall.multicall import CallRawData, Multicall
+from multicall.utils import flatten
 
-# TODO saving data as pythonic as well for ease of sql querying after the fact
+# from multicall.constants import CACHE_PATH
+
 
 """
 Notes on speed,
@@ -27,8 +24,17 @@ In practice a very long bit of data is len 194, in practice, almost all is len 4
 30sec to read all 10m rows
 """
 
+# TODO add logging
+"""
+log read x lines in y seconds from dbPath
+log wrote x lines in y seconds to dbPath
+log attempted to read X rows, found y rows and did not find z rows from dbPATH
+
+"""
+
+
 COLUMNS = [
-    "callId",
+    "callId",  # sha256(chainId, target, signature, arguements, block)
     "target",
     "signature",
     "argumentsAsStr",
@@ -41,15 +47,15 @@ COLUMNS = [
 
 
 def return_cleaned_data_as_df(data: list[CallRawData]) -> pd.DataFrame:
-    #list_of_values_to_cache = [c.convert_to_format_to_save_in_cache_db() for c in data]
+    # list_of_values_to_cache = [c.convert_to_format_to_save_in_cache_db() for c in data]
     pass
 
 
-def save_data(data: list[CallRawData]) -> None:
+def save_data(data: list[CallRawData], cache_path: Path) -> None:
     # Convert the CallRawData objects to the format required for the database
     list_of_values_to_cache = [c.convert_to_format_to_save_in_cache_db() for c in data]
 
-    with sqlite3.connect(CACHE_PATH) as conn:
+    with sqlite3.connect(cache_path) as conn:
         cursor = conn.cursor()
 
         # Bulk insert using executemany
@@ -64,12 +70,12 @@ def save_data(data: list[CallRawData]) -> None:
         conn.commit()
 
 
-def delete_call(call: Call, block: int) -> bool:
+def delete_call(call: Call, block: int, cache_path: Path) -> bool:
     """Delete a single call entry based on callId and return True if the operation was successful, False otherwise."""
 
     call_id = call.to_id(block)
 
-    with sqlite3.connect(CACHE_PATH) as conn:
+    with sqlite3.connect(cache_path) as conn:
         cursor = conn.cursor()
 
         # Execute the delete statement
@@ -89,12 +95,12 @@ def delete_call(call: Call, block: int) -> bool:
             return False  # No row was deleted, possibly because it did not exist
 
 
-def isCached(call: Call, block: int) -> bool:
+def isCached(call: Call, block: int, cache_path: Path) -> bool:
     """return bool -> we have this"""
 
     call_id = call.to_id(block)
 
-    with sqlite3.connect(CACHE_PATH) as conn:
+    with sqlite3.connect(cache_path) as conn:
         cursor = conn.cursor()
 
         cursor.execute(
@@ -112,12 +118,14 @@ def isCached(call: Call, block: int) -> bool:
             return False
 
 
-def get_one_value(call: Call, block: int) -> tuple[bool, bytes] | None:
+def get_isCached_success_raw_bytes_output_for_a_single_call(
+    call: Call, block: int, cache_path: Path
+) -> tuple[bool, bytes] | None:
     """run one call and return success and block or None if the call is not indexed"""
 
     call_id = call.to_id(block)
 
-    with sqlite3.connect(CACHE_PATH) as conn:
+    with sqlite3.connect(cache_path) as conn:
         cursor = conn.cursor()
 
         cursor.execute(
@@ -129,14 +137,14 @@ def get_one_value(call: Call, block: int) -> tuple[bool, bytes] | None:
             (call_id,),
         )
         result = cursor.fetchone()
-        if result:
-            return (result[0], result[1])  # success, rawBytes Response
+        if result is not None:
+            return (True, result[0], result[1])  # we have it, success, response
         else:
-            return None
+            return (False, None, None)  # we have it, success, response
 
 
-@time_function
-def get_data_from_disk(calls: list[Call], blocks: list[int]) -> tuple[pd.DataFrame, pd.DataFrame]:
+# @time_function
+def get_data_from_disk(calls: list[Call], blocks: list[int], cache_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Read from disk. Returns found_df and not_found_df
     """
@@ -144,7 +152,7 @@ def get_data_from_disk(calls: list[Call], blocks: list[int]) -> tuple[pd.DataFra
     empty_df = pd.DataFrame.from_records(flatten([multicall.to_list_of_empty_records(block) for block in blocks]))
     call_ids = empty_df["callId"].to_list()
 
-    with sqlite3.connect(CACHE_PATH) as conn:
+    with sqlite3.connect(cache_path) as conn:
         query = f"""
             SELECT * FROM multicallCache
             WHERE callId IN ({','.join('?' * len(call_ids))})
@@ -158,56 +166,69 @@ def get_data_from_disk(calls: list[Call], blocks: list[int]) -> tuple[pd.DataFra
     return found_df, not_found_df
 
 
-def fetch_all_data():
-    with sqlite3.connect(CACHE_PATH) as conn:
+def df_to_CallRawData(df: pd.DataFrame, calls: list[Call], blocks: list[int]) -> list[CallRawData]:
+
+    callIds_to_call_and_block = dict()  # callId -> tuple(call, block)
+
+    for call in calls:
+        for block in blocks:
+            call_id = call.to_id(block)
+            callIds_to_call_and_block[call_id] = (call, block)
+
+    call_id_to_success_and_response = df.set_index("callId")[["success", "response"]].apply(tuple, axis=1).to_dict()
+
+    all_raw_call_data = []
+    for call_id in df["callId"]:
+        call, block = callIds_to_call_and_block[call_id]
+        success, response = call_id_to_success_and_response[call_id]
+        a_call_raw_data = CallRawData(call=call, block=block, success=success, response=response)
+        all_raw_call_data.append(a_call_raw_data)
+
+    return all_raw_call_data
+
+
+def fetch_all_data(cache_path: Path) -> pd.DataFrame:
+    with sqlite3.connect(cache_path) as conn:
         return pd.read_sql_query("SELECT * FROM multicallCache", conn)
 
 
-def _generate_random_string(length: int) -> str:
-    """Helper function to make mock data"""
-    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
+def get_db_size(cache_path: Path) -> int:
+    with sqlite3.connect(cache_path) as conn:
+        # TODO not efficient
+        df = pd.read_sql_query("SELECT * FROM multicallCache", conn)
+        return len(df)
 
 
-def _generate_row(_) -> tuple:
-    call_id = _generate_random_string(40)
-    target = _generate_random_string(42)
-    signature = _generate_random_string(100)
-    arguments = (100, 50, _generate_random_string(40))
-    argumentsAsString = str(arguments)
-    argumentsAsPickle = pickle.dumps(arguments)
-    block = random.randint(1, 20_000_000)
-    chain_id = random.randint(1, 100)
-    success = random.choice([True, False])
-    # simulates the random number of values retunred by a function call, back of the napkin approximation
-    # in practice I have found most function only a single value, but there are some functions that return many values
-    bytes_response_length = 40
-    num_responses = random.choice([1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 5, 10, 100])
-    response = bytes(
-        _generate_random_string(bytes_response_length * num_responses), "utf-8"
-    )  # the largest random bytes
-    return (call_id, target, signature, argumentsAsString, argumentsAsPickle, block, chain_id, success, response)
+def create_db(db_path: Path):
+    if os.path.exists(db_path):
+        raise ValueError(f"cannot create a db at {db_path=} because it already exists")
+    else:
+        with open(db_path, "w") as fp:
+            del fp
+            pass
 
-
-def _generate_random_data(n: int) -> list:
-    with Pool(processes=multiprocessing.cpu_count() - 1) as pool:
-        return pool.map(_generate_row, range(n))
-
-
-@time_function
-def insert_random_rows(n: int) -> None:
-    """Helper function to test read / write speeds for the sqllite database"""
-    random_data = _generate_random_data(n)
-
-    with sqlite3.connect(CACHE_PATH) as conn:
+    with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
-
-        cursor.executemany(
+        cursor.execute(
             """
-            INSERT INTO multicallCache (callId, target, signature, argumentsAsStr, argumentsAsPickle, block, chainID, success, response)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(callId) DO NOTHING;
-            """,
-            random_data,
+    CREATE TABLE multicallCache (
+        callId BLOB PRIMARY KEY,
+        target TEXT,
+        signature TEXT,
+        argumentsAsStr TEXT,
+        argumentsAsPickle bytes,
+        block INTEGER,
+        chainId INTEGER,
+        success BOOLEAN,
+        response BLOB
+    )
+    """
         )
-
         conn.commit()
+
+
+def delete_db(db_path: Path):
+    if os.path.exists(db_path):
+        os.remove(db_path)
+    else:
+        raise ValueError(f"Cannot remove a db at {db_path=} because it does not exist")

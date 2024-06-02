@@ -5,7 +5,7 @@ import aiohttp
 import pandas as pd
 from web3 import Web3
 import numpy as np
-
+from pathlib import Path
 from aiolimiter import AsyncLimiter
 
 
@@ -13,22 +13,51 @@ from multicall.call import Call
 from multicall.multicall import Multicall
 from multicall.utils import flatten, time_function
 from multicall.cache import save_data, get_data_from_disk
+from multicall.constants import CACHE_PATH
 
 
 @time_function
 def fetch_save_and_return(
-    calls: list[Call], blocks: list[int], w3: Web3, max_calls_per_second: int = 10
+    calls: list[Call],
+    blocks: list[int],
+    w3: Web3,
+    max_calls_per_second: int = 10,
+    cache="default",
+    max_calls_per_rpc_call: int = 3_000,
 ) -> pd.DataFrame:
-    # todo, calls, and blocks can be 0 make sure it works
-    found_df, not_found_df = get_data_from_disk(calls, blocks)
+    """
+    Primary Entry Point
+
+    Get all the data that already exists
+    externally fetch  and sve all the data that is missing
+    read entire saved data from disk and return it processed.
+    """
+    if len(calls) == 0:
+        raise ValueError("len(calls) cannot be 0")
+    if len(blocks) == 0:
+        raise ValueError("len(blocks) cannot be 0")
+
+    cache_path = CACHE_PATH if cache == "default" else cache
+
+    found_df, not_found_df = get_data_from_disk(calls, blocks, cache_path)
     print(f"first attempt    {found_df.shape=}      {not_found_df.shape=} \n")
     blocks_left = [int(b) for b in not_found_df["block"].unique()]
     if len(blocks_left) > 0:
         print(
             f"Some data not found, making {len(blocks_left)} external calls at a rate of {max_calls_per_second} call /second \n"
         )
-        asyncio.run(async_fetch_multicalls_across_blocks_and_save(calls, blocks, w3, max_calls_per_second))
-        found_df, not_found_df = get_data_from_disk(calls, blocks)
+        asyncio.run(
+            async_fetch_multicalls_across_blocks_and_save(
+                calls=calls,
+                blocks=blocks,
+                w3=w3,
+                rate_limit_per_second=max_calls_per_second,
+                cache_path=cache_path,
+                save=True,
+                max_calls_per_rpc_call=max_calls_per_rpc_call,
+            )
+        )
+        found_df, not_found_df = get_data_from_disk(calls, blocks, cache_path)
         print(f"Second attempt    {found_df.shape=}      {not_found_df.shape=} \n")
         pass
     else:
@@ -43,7 +72,9 @@ def fetch_save_and_return(
     return processed_block_wise_data_df
 
 
-def simple_sequential_fetch_multicalls_across_blocks_and_save(calls: list[Call], blocks: list[int], w3: Web3) -> None:
+def simple_sequential_fetch_multicalls_across_blocks_and_save(
+    calls: list[Call], blocks: list[int], w3: Web3, cache_path: Path
+) -> None:
     """make and save all the data from calls, blocks"""
 
     multicall = Multicall(calls)
@@ -52,7 +83,7 @@ def simple_sequential_fetch_multicalls_across_blocks_and_save(calls: list[Call],
         data = multicall.make_external_calls_to_raw_data(w3, block_id)
         call_raw_data.extend(data)
 
-    save_data(call_raw_data)
+    save_data(call_raw_data, cache_path)
 
 
 async def async_fetch_multicalls_across_blocks_and_save(
@@ -60,6 +91,7 @@ async def async_fetch_multicalls_across_blocks_and_save(
     blocks: list[int],
     w3: Web3,
     rate_limit_per_second: int,
+    cache_path: Path,
     save: bool = True,
     max_calls_per_rpc_call: int = 3_000,
 ):
@@ -71,7 +103,7 @@ async def async_fetch_multicalls_across_blocks_and_save(
         chunks_of_calls = np.array_split(calls, (len(calls) // max_calls_per_rpc_call) + 1)
         multicalls = [Multicall(list(c)) for c in chunks_of_calls]
 
-    rate_limiter = AsyncLimiter(rate_limit_per_second, time_period=1)  # 1 second
+    rate_limiter = AsyncLimiter(rate_limit_per_second, time_period=1)
     timeout = aiohttp.ClientTimeout(total=10)
     tasks = []
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -85,7 +117,7 @@ async def async_fetch_multicalls_across_blocks_and_save(
     call_raw_data = flatten(call_raw_data)
 
     if save:
-        save_data(call_raw_data)
+        save_data(call_raw_data, cache_path)
     else:
         return call_raw_data
 
@@ -94,27 +126,27 @@ async def async_fetch_multicalls_across_blocks_and_save(
 def _raw_bytes_data_df_to_processed_block_wise_data_df(
     raw_bytes_data_df: pd.DataFrame, calls: list[Call], blocks: list[int]
 ) -> pd.DataFrame:
-    # pure function, no external calls, fast enough, todo test with 1m data points
-    # dict of callid: raw_bytes_output
-    call_id_to_raw_bytes_output = dict()
+    call_id_to_success_and_response = dict()
 
     for callId, success, response in zip(
         raw_bytes_data_df["callId"], raw_bytes_data_df["success"], raw_bytes_data_df["response"]
     ):
-        call_id_to_raw_bytes_output[callId] = (success, response)
+        call_id_to_success_and_response[callId] = (success, response)
 
-    callIds_to_call = dict()
+    callIds_to_call_and_block = dict()
 
     for call in calls:
         for block in blocks:
-            callIds_to_call[call.to_id(block)] = (call, block)
+            call_id = call.to_id(block)
+            callIds_to_call_and_block[call_id] = (call, block)
 
     # label, handeling function, decoded value
+    # TODO duplicate logic as in cache.py pick one and stick with it
     processed_outputs: dict[int, list[dict[str, any]]] = {}
 
-    for callId, call_block in callIds_to_call.items():
+    for callId, call_block in callIds_to_call_and_block.items():
         (call, block) = call_block
-        (success, raw_bytes_output) = call_id_to_raw_bytes_output[callId]  # should never fail
+        (success, raw_bytes_output) = call_id_to_success_and_response[callId]  # should never fail
 
         processed_response: dict[str, any] = call.decode_output(raw_bytes_output)
 
@@ -134,9 +166,10 @@ def _raw_bytes_data_df_to_processed_block_wise_data_df(
         # and {'usdcDecimals': BBB, 'lastTimestampUpdate': DDD, block: YYY}
 
         # we want a df that looks like
-        # block, weth_balance_of, usdcDecimals, lastTimestampUpdate
-        # ZZZ, AAA, BBB, CCC
-        # YYY, EEE, BBB, DDD
+        # | Block ID | weth_balance_of      | usdcDecimals  | lastTimestampUpdate |
+        # |----------|----------------------|---------------|---------------------|
+        # | ZZZ      | AAA                  | BBB           | CCC                 |
+        # | YYY      | EEE                  | BBB           | DDD                 |
 
     # at ths point  processed_outputs looks like
 
