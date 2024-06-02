@@ -103,7 +103,7 @@ async def async_fetch_multicalls_across_blocks_and_save(
         chunks_of_calls = np.array_split(calls, (len(calls) // max_calls_per_rpc_call) + 1)
         multicalls = [Multicall(list(c)) for c in chunks_of_calls]
 
-    rate_limiter = AsyncLimiter(rate_limit_per_second, time_period=1)  # time_period= 1 -> 1 second
+    rate_limiter = AsyncLimiter(rate_limit_per_second, time_period=1)
     timeout = aiohttp.ClientTimeout(total=10)
     tasks = []
     async with aiohttp.ClientSession(timeout=timeout) as session:

@@ -7,7 +7,7 @@ from pathlib import Path
 import os
 
 load_dotenv()
-W3 = Web3(Web3.HTTPProvider(os.environ.get("ALCHEMY_URL")))
+W3 = Web3(Web3.HTTPProvider(os.environ.get("ALCHEMY_URL")))  # TODO move this to helpers
 CACHE_PATH = Path(__file__).parent / "multicallCache.sqlite"
 TEST_CACHE_PATH = Path(__file__).parent / "testing_multicallCache.sqlite"
 

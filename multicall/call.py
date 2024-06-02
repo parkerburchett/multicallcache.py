@@ -14,8 +14,8 @@ from multicall.constants import CACHE_PATH
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
-CALL_FAILED_REVERT_MESSAGE = "reverted_call_failed"
-NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
+CALL_FAILED_REVERT_MESSAGE = "REVERTED"
+NOT_A_CONTRACT_REVERT_MESSAGE = "REVERTED"  # TODO add the capacity to tell these apart
 REVERTED_UNKNOWN_MESSAGE = "REVERTED"
 
 

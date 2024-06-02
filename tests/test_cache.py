@@ -1,11 +1,11 @@
 from multicall.cache import isCached
 from multicall.multicall import Multicall
 
-from helpers import weth_bal, usdc_bal, refresh_db, TEST_BLOCK
+from helpers import weth_bal, usdc_bal, refresh_testing_db, TEST_BLOCK
 from multicall.constants import TEST_CACHE_PATH, W3
 
 
-@refresh_db
+@refresh_testing_db
 def test_Call__call__caches_only_finalized_blocks():
     assert not isCached(weth_bal, TEST_BLOCK, TEST_CACHE_PATH)
     weth_bal(W3, 18_000_000, TEST_CACHE_PATH)
@@ -19,7 +19,7 @@ def test_Call__call__caches_only_finalized_blocks():
     assert not isCached(weth_bal, latest_block, TEST_CACHE_PATH)
 
 
-@refresh_db
+@refresh_testing_db
 def test_Multicall__call__caches_only_finalized_blocks():
     assert not isCached(weth_bal, TEST_BLOCK, TEST_CACHE_PATH)
     assert not isCached(usdc_bal, TEST_BLOCK, TEST_CACHE_PATH)

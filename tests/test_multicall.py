@@ -4,43 +4,38 @@ from dotenv import load_dotenv
 from web3 import Web3
 from multicall.multicall import Multicall
 from multicall.call import Call, CALL_FAILED_REVERT_MESSAGE, NOT_A_CONTRACT_REVERT_MESSAGE
+from helpers import TEST_BLOCK, refresh_testing_db, identity_function, TEST_CACHE_PATH
+from multicall.constants import W3
 
 # note: does not touch db
 
-load_dotenv()
 
 cbETH = "0xBe9895146f7AF43049ca1c1AE358B0541Ea49704"
 cbETH_holder = "0xED1F7bb04D2BA2b6EbE087026F03C96Ea2c357A8"
 
-BLOCK_TO_CHECK = 18_000_000
-w3 = Web3(Web3.HTTPProvider(os.environ.get("ALCHEMY_URL")))
 
-
-def identify_function(value):
-    return value
-
-
+@refresh_testing_db
 def test_multicall():
     balance_of_call = Call(
         cbETH,
         "balanceOf(address)(uint256)",
         (cbETH_holder),
         "balanceOf",
-        identify_function,
+        identity_function,
     )
     name_call = Call(
         cbETH,
         "name()(string)",
         (),
         "name",
-        identify_function,
+        identity_function,
     )
     total_supply_call = Call(
         cbETH,
         "totalSupply()(uint256)",
         (),
         "totalSupply",
-        identify_function,
+        identity_function,
     )
     multicall_single_return_values = Multicall(
         [balance_of_call, name_call, total_supply_call],
@@ -50,10 +45,10 @@ def test_multicall():
         "balanceOf": 32431674561658258136000,
         "name": "Coinbase Wrapped Staked ETH",
         "totalSupply": 1224558113282286488129522,
-        "block": BLOCK_TO_CHECK,
+        "block": TEST_BLOCK,
     }
 
-    data = multicall_single_return_values(w3, BLOCK_TO_CHECK)  # default behavior does not cache
+    data = multicall_single_return_values(W3, TEST_BLOCK, TEST_CACHE_PATH)  # default behavior does not cache
 
     assert data == single_return_values_expected_data, "Multicall, multiple calls, each returning a single value failed"
 
@@ -67,7 +62,7 @@ def test_multicall():
         "getPausedState()(bool,uint256,uint256)",
         (),
         ("paused", "pauseWindowEndTime", "bufferPeriodEndTime"),
-        (identify_function, identify_function, identify_function),
+        (identity_function, identity_function, identity_function),
     )
 
     vault_get_pool_tokens_call = Call(
@@ -75,7 +70,7 @@ def test_multicall():
         "getPoolTokens(bytes32)(address[],uint256[],uint256)",
         pool_id,
         ("tokens", "balances", "lastChangeBlock"),
-        (identify_function, identify_function, identify_function),
+        (identity_function, identity_function, identity_function),
     )
 
     many_return_values_expected_data = {
@@ -88,13 +83,13 @@ def test_multicall():
         ),
         "balances": (10218807022150565266010, 12892757262517014259928),
         "lastChangeBlock": 17999794,
-        "block": BLOCK_TO_CHECK,
+        "block": TEST_BLOCK,
     }
 
     multicall_with_many_return_values = Multicall([vault_get_paused_state_call, vault_get_pool_tokens_call])
 
     assert (
-        multicall_with_many_return_values(w3, BLOCK_TO_CHECK) == many_return_values_expected_data
+        multicall_with_many_return_values(W3, TEST_BLOCK, TEST_CACHE_PATH) == many_return_values_expected_data
     ), "multicall_many_return_values failed"
 
     multicall_with_single_and_multiple = Multicall(
@@ -104,7 +99,7 @@ def test_multicall():
     expected_values_combination = {**many_return_values_expected_data, **single_return_values_expected_data}
 
     assert (
-        multicall_with_single_and_multiple(w3, BLOCK_TO_CHECK) == expected_values_combination
+        multicall_with_single_and_multiple(W3, TEST_BLOCK, TEST_CACHE_PATH) == expected_values_combination
     ), "multicall_with_single_and_multiple failed"
 
     ################################# Functions that don't exist #################################
@@ -113,7 +108,7 @@ def test_multicall():
         "thisFunctionDoesNotExist()(uint256)",
         (),
         "thisFunctionDoesNotExist",
-        identify_function,
+        identity_function,
     )
 
     multicall_with_bad_function_signature_call = Multicall(
@@ -129,9 +124,9 @@ def test_multicall():
 
     expected_values_combination["thisFunctionDoesNotExist"] = CALL_FAILED_REVERT_MESSAGE
 
-    assert (
-        multicall_with_bad_function_signature_call(w3, BLOCK_TO_CHECK) == expected_values_combination
-    ), "multicall_single_and_multiple failed"
+    a = multicall_with_bad_function_signature_call(W3, TEST_BLOCK, TEST_CACHE_PATH)
+
+    assert a == expected_values_combination, "multicall_single_and_multiple failed" + str(expected_values_combination)
 
     address_without_code = "0x0000000000000000000000000000000000000000"
 
@@ -140,7 +135,7 @@ def test_multicall():
         "thisFunctionDoesNotExist()(uint256)",
         (),
         "AddressWithoutCode",
-        identify_function,
+        identity_function,
     )
 
     multicall_with_call_to_address_without_code = Multicall(
@@ -158,5 +153,8 @@ def test_multicall():
     expected_values_combination["AddressWithoutCode"] = NOT_A_CONTRACT_REVERT_MESSAGE
 
     assert (
-        multicall_with_call_to_address_without_code(w3, BLOCK_TO_CHECK) == expected_values_combination
+        multicall_with_call_to_address_without_code(W3, TEST_BLOCK, TEST_CACHE_PATH) == expected_values_combination
     ), "multicall_with_call_to_address_without_code failed"
+
+
+test_multicall()

@@ -20,7 +20,11 @@ usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 TEST_BLOCK = 18_000_000
 
 
-def refresh_db(func):
+def identity_function(x):
+    return x
+
+
+def refresh_testing_db(func):
     # makes a fresh db between tests
     def wrapper(*args, **kwargs):
         create_db(TEST_CACHE_PATH)
@@ -30,6 +34,24 @@ def refresh_db(func):
         except KeyboardInterrupt:
             raise
         finally:
+            delete_db(TEST_CACHE_PATH)
+
+    return wrapper
+
+
+def async_refresh_testing_db(func):
+    # Makes a fresh database between tests
+    async def wrapper(*args, **kwargs):
+        create_db(TEST_CACHE_PATH)
+        try:
+            # Await the result of the async function
+            result = await func(*args, **kwargs)
+            return result
+        except KeyboardInterrupt:
+            # Properly pass on the KeyboardInterrupt for graceful shutdown
+            raise
+        finally:
+            # Ensure the database is deleted even if there are errors
             delete_db(TEST_CACHE_PATH)
 
     return wrapper
