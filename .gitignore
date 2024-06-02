@@ -2,11 +2,11 @@ __pycache__
 vscode
 dist
 env/
+playground/
 cache/
 .mypy_cache
 .pytest_cache
 .env
-
 venv
 conf.json
-cache_db.sqlite
+*.sqllite

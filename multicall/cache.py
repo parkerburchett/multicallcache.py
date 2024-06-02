@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 
 from multicall.call import Call
+from multicall.constants import CACHE_PATH, TEST_CACHE_PATH
 from multicall.multicall import CallRawData, Multicall
 from multicall.utils import flatten
 
@@ -187,7 +188,8 @@ def df_to_CallRawData(df: pd.DataFrame, calls: list[Call], blocks: list[int]) ->
     return all_raw_call_data
 
 
-def fetch_all_data(cache_path: Path) -> pd.DataFrame:
+def fetch_all_data(cache: Path = "defualt") -> pd.DataFrame:
+    cache_path = CACHE_PATH if cache == "default" else cache
     with sqlite3.connect(cache_path) as conn:
         return pd.read_sql_query("SELECT * FROM multicallCache", conn)
 
@@ -211,7 +213,7 @@ def create_db(db_path: Path):
         cursor = conn.cursor()
         cursor.execute(
             """
-    CREATE TABLE multicallCache (
+    CREATE TABLE IF NOT EXISTS multicallCache (
         callId BLOB PRIMARY KEY,
         target TEXT,
         signature TEXT,
