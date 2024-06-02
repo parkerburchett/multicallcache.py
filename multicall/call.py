@@ -138,28 +138,32 @@ class Call:
         if isinstance(block_id, int):
             # TODO this is for circular import issues, (call.py <-> cache.py)
             # refactor these to not have circular imports or need to import here
-            from multicall.cache import get_one_value, isCached
+            from multicall.cache import get_isCached_success_raw_bytes_output_for_a_single_call
 
-            already_cached = isCached(self, block_id, cache_path)
-            # RPC call, TODO remove when not needed, make some assumptions
-            finalized_block = w3.eth.get_block("finalized").number
-            block_is_finalized = block_id < finalized_block
-
-            if block_is_finalized and not already_cached:
+            # step 1 if we already have it return it, most happy path, only 1 call
+            isCached, success, raw_bytes_output = get_isCached_success_raw_bytes_output_for_a_single_call(self, block_id, cache_path)
+            if isCached:
+                if success:
+                    return self.decode_output(raw_bytes_output)
+                else:
+                    raise exceptions.ContractLogicError()
+                
+            if block_id < w3.eth.get_block("finalized").number:
                 _save_data(w3, self, block_id, cache_path)
-
-            success, raw_bytes_output = get_one_value(self, block_id, cache_path)
-            if not success:
-                raise exceptions.ContractLogicError()
+                # TODO gets exteranl data, saves it, then reads it from disk
+                # one read is redundent, can removes
+                isCached, success, raw_bytes_output = get_isCached_success_raw_bytes_output_for_a_single_call(self, block_id, cache_path)
+                if isCached:
+                    if success:
+                        return self.decode_output(raw_bytes_output)
+                    else:
+                        raise exceptions.ContractLogicError()
+            
             else:
+                # make a call and don't save the result
+                rpc_args = self.to_rpc_call_args(block_id)
+                raw_bytes_output = w3.eth.call(*rpc_args)  # might raise exceptions.ContractLogicError()
                 return self.decode_output(raw_bytes_output)
-
-        else:
-            # TODO if if block id = finalized then it should be cached, but this code does not cache it
-            # not cached and it shouldn't be cached because block_id is not finalized
-            rpc_args = self.to_rpc_call_args(block_id)
-            raw_bytes_output = w3.eth.call(*rpc_args)  # might raise exceptions.ContractLogicError()
-            return self.decode_output(raw_bytes_output)
 
 
 # TODO, goal: fully abstract away the finalized block issue.

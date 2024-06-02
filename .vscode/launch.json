@@ -7,7 +7,7 @@
 
         {
             "name": "Python: current file",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
@@ -15,21 +15,21 @@
         }
         {
             "name": "Python: Module",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "multicall",
             "justMyCode": true
         },
         {
             "name": "Not just my code",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "multicall",
             "justMyCode": false
         },
         {
             "name": "Python: Remote Attach, for pytest",
-            "type": "python",
+            "type": "debugpy",
             "request": "attach",
             "connect": {
               "host": "localhost",

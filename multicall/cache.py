@@ -24,6 +24,15 @@ In practice a very long bit of data is len 194, in practice, almost all is len 4
 30sec to read all 10m rows
 """
 
+# TODO add logging
+"""
+log read x lines in y seconds from dbPath
+log wrote x lines in y seconds to dbPath
+log attempted to read X rows, found y rows and did not find z rows from dbPATH
+
+"""
+
+
 COLUMNS = [
     "callId",
     "target",
@@ -109,7 +118,7 @@ def isCached(call: Call, block: int, cache_path: Path) -> bool:
             return False
 
 
-def get_one_value(call: Call, block: int, cache_path: Path) -> tuple[bool, bytes] | None:
+def get_isCached_success_raw_bytes_output_for_a_single_call(call: Call, block: int, cache_path: Path) -> tuple[bool, bytes] | None:
     """run one call and return success and block or None if the call is not indexed"""
 
     call_id = call.to_id(block)
@@ -126,10 +135,10 @@ def get_one_value(call: Call, block: int, cache_path: Path) -> tuple[bool, bytes
             (call_id,),
         )
         result = cursor.fetchone()
-        if result:
-            return (result[0], result[1])  # success, rawBytes Response
+        if result is not None:
+            return (True, result[0], result[1])  # we have it, success, response
         else:
-            return None
+            return (False, None, None) # we have it, success, response
 
 
 @time_function
