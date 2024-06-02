@@ -111,6 +111,7 @@ class Call:
         return label_to_output
 
     def to_id(self, block: int) -> bytes:
+        """A unique identifer of the immutable charactaristics of this call """
         if not isinstance(block, int):
             raise ValueError("Must define a block to make a call ID")
 
