@@ -6,7 +6,8 @@ import os
 from multicall.call import Call
 from multicall.multicall import CallRawData, Multicall
 from multicall.utils import time_function, flatten
-from multicall.constants import CACHE_PATH
+
+# from multicall.constants import CACHE_PATH
 
 
 """
@@ -154,15 +155,17 @@ def get_data_from_disk(calls: list[Call], blocks: list[int], cache_path: Path) -
     return found_df, not_found_df
 
 
-def fetch_all_data():
-    with sqlite3.connect(CACHE_PATH) as conn:
+def fetch_all_data(cache_path: Path) -> pd.DataFrame:
+    with sqlite3.connect(cache_path) as conn:
         return pd.read_sql_query("SELECT * FROM multicallCache", conn)
 
 
 def create_db(db_path: Path):
-    # TODO broken, still need to run notebook
     if os.path.exists(db_path):
         raise ValueError(f"cannot create a db at {db_path=} because it already exists")
+    else:
+        with open(db_path, "w") as fp:
+            pass
 
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
@@ -189,8 +192,3 @@ def delete_db(db_path: Path):
         os.remove(db_path)
     else:
         raise ValueError(f"Cannot remove a db at {db_path=} because it does not exist exists")
-
-
-# # create the db if it does not exist, run on import, ugly move to a place that makes more sense
-# if not os.path.exists(CACHE_PATH):
-#     create_db(CACHE_PATH)

@@ -7,13 +7,13 @@
 
 from multicall.cache import isCached
 from helpers import weth_bal
-from multicall.constants import CACHE_PATH
+from multicall.constants import TEST_CACHE_PATH
 
+import pytest
 
 def test_cached_something_successfully():
+    assert True
+    a = 10
+    pass
 
-    print("asdfasdf")
-
-    # make this calla nd assert that it is cached
-
-    assert not isCached(weth_bal, 18_000_000, CACHE_PATH)
+    assert not isCached(weth_bal, 18_000_000, TEST_CACHE_PATH)

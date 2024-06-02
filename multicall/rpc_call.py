@@ -36,7 +36,7 @@ async def async_rpc_eth_call(w3: HTTPProvider, rpc_args, session: aiohttp.Client
                     print(
                         f"429 error, waiting to retry, exceeded alchemy compute units /s {attempt=} with {rate_limiter.max_rate=} rpc calls / second"
                     )
-                    await asyncio.sleep(2**attempt)  # Exponential backoff
+                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
                 else:
                     response.raise_for_status()
 
