@@ -6,11 +6,12 @@
 
 
 from multicall.cache import isCached
-from helpers import weth_bal
+from helpers import weth_bal, refresh_db
 from multicall.constants import TEST_CACHE_PATH
 
 import pytest
 
+@refresh_db
 def test_cached_something_successfully():
     assert True
     a = 10

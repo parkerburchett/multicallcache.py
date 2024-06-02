@@ -9,15 +9,48 @@ from multiprocessing import Pool
 import pickle
 from pathlib import Path
 
+import pytest
+from multicall.cache import create_db, delete_db
+import os
+from multicall.constants import TEST_CACHE_PATH, CACHE_PATH
 from multicall.call import Call
 from multicall.utils import time_function
-from multicall.constants import CACHE_PATH
 
 test_data_path = Path(__file__).parent / "test_data"
 
 uniswap_v3_usdc_weth_pool = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"
 weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+
+
+
+
+# @pytest.fixture(scope="session", autouse=True)
+# def setup_session():
+#     create_db(TEST_CACHE_PATH)
+#     yield
+#     delete_db(TEST_CACHE_PATH)
+
+def preTest():
+    create_db(TEST_CACHE_PATH)
+
+def postTest():
+    delete_db(TEST_CACHE_PATH)
+
+def refresh_db(func):
+    # makes a fresh db between tests
+    def wrapper(*args, **kwargs):
+        # Run pre-test
+        preTest()
+        try:
+            # Execute the function
+            result = func(*args, **kwargs)
+            return result
+        finally:
+            # Run post-test
+            postTest()
+    return wrapper
+
 
 
 def to_str(data: any) -> str:
