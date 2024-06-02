@@ -32,14 +32,16 @@ def fetch_save_and_return(
     externally fetch  and sve all the data that is missing
     read entire saved data from disk and return it processed.
     """
+    if len(calls) == 0:
+        raise ValueError("len(calls) cannot be 0")
+    if len(blocks) == 0:
+        raise ValueError("len(blocks) cannot be 0")
 
     cache_path = CACHE_PATH if cache == "default" else cache
 
     found_df, not_found_df = get_data_from_disk(calls, blocks, cache_path)
-    # TODO, test cases when either calls or blocks is empty, calls, and blocks can be 0 make sure it works
     print(f"first attempt    {found_df.shape=}      {not_found_df.shape=} \n")
     blocks_left = [int(b) for b in not_found_df["block"].unique()]
-    # todo consider wrapping this in a while loop? while len_blocks left > 0 ?
     if len(blocks_left) > 0:
         print(
             f"Some data not found, making {len(blocks_left)} external calls at a rate of {max_calls_per_second} call /second \n"
@@ -124,32 +126,32 @@ async def async_fetch_multicalls_across_blocks_and_save(
 def _raw_bytes_data_df_to_processed_block_wise_data_df(
     raw_bytes_data_df: pd.DataFrame, calls: list[Call], blocks: list[int]
 ) -> pd.DataFrame:
-    # pure function, no external calls, fast enough, todo test with 1m data points
-    # dict of callid: raw_bytes_output
-    call_id_to_raw_bytes_output = dict()
+    call_id_to_success_and_response = dict()
 
     for callId, success, response in zip(
         raw_bytes_data_df["callId"], raw_bytes_data_df["success"], raw_bytes_data_df["response"]
     ):
-        call_id_to_raw_bytes_output[callId] = (success, response)
+        call_id_to_success_and_response[callId] = (success, response)
 
-    callIds_to_call = dict()
+    callIds_to_call_and_block = dict()
 
     for call in calls:
         for block in blocks:
-            callIds_to_call[call.to_id(block)] = (call, block)
+            call_id = call.to_id(block)
+            callIds_to_call_and_block[call_id] = (call, block)
 
     # label, handeling function, decoded value
+    # TODO duplicate logic as in cache.py pick one and stick with it
     processed_outputs: dict[int, list[dict[str, any]]] = {}
 
-    for callId, call_block in callIds_to_call.items():
+    for callId, call_block in callIds_to_call_and_block.items():
         (call, block) = call_block
-        (success, raw_bytes_output) = call_id_to_raw_bytes_output[callId]  # should never fail
+        (success, raw_bytes_output) = call_id_to_success_and_response[callId]  # should never fail
 
         processed_response: dict[str, any] = call.decode_output(raw_bytes_output)
 
         if block in processed_outputs:
-            processed_outputs[block].update(processed_response)  # not cetrain on if update() is the right method here
+            processed_outputs[block].update(processed_response)
         else:
             processed_outputs[block] = processed_response
 
@@ -164,9 +166,10 @@ def _raw_bytes_data_df_to_processed_block_wise_data_df(
         # and {'usdcDecimals': BBB, 'lastTimestampUpdate': DDD, block: YYY}
 
         # we want a df that looks like
-        # block, weth_balance_of, usdcDecimals, lastTimestampUpdate
-        # ZZZ, AAA, BBB, CCC
-        # YYY, EEE, BBB, DDD
+        # | Block ID | weth_balance_of      | usdcDecimals  | lastTimestampUpdate |
+        # |----------|----------------------|---------------|---------------------|
+        # | ZZZ      | AAA                  | BBB           | CCC                 |
+        # | YYY      | EEE                  | BBB           | DDD                 |
 
     # at ths point  processed_outputs looks like
 

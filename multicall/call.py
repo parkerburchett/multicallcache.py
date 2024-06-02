@@ -111,7 +111,7 @@ class Call:
         return label_to_output
 
     def to_id(self, block: int) -> bytes:
-        """A unique identifer of the immutable charactaristics of this call """
+        """A unique identifer of the immutable charactaristics of this call"""
         if not isinstance(block, int):
             raise ValueError("Must define a block to make a call ID")
 
@@ -153,8 +153,8 @@ class Call:
 
             if block_id < w3.eth.get_block("finalized").number:
                 _save_data(w3, self, block_id, cache_path)
-                # TODO gets exteranl data, saves it, then reads it from disk
-                # one read is redundent, can removes
+                # TODO gets external data, saves it, then reads it from disk
+                # one read is redundent, can remove
                 isCached, success, raw_bytes_output = get_isCached_success_raw_bytes_output_for_a_single_call(
                     self, block_id, cache_path
                 )

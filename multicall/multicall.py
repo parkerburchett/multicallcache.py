@@ -216,10 +216,3 @@ class Multicall:
         raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
         label_to_output = self.process_raw_bytes_output(raw_bytes_output, block_id)
         return label_to_output
-
-    async def async_call(self, w3: Web3, block: int, session: aiohttp.ClientSession, rate_limiter: AsyncLimiter):
-        # TODO add caching
-        rpc_args = self.to_rpc_call_args(block)
-        raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
-        label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
-        return label_to_output
