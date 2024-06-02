@@ -6,6 +6,7 @@ import pickle
 from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
 from multicall.signature import Signature
 from multicall.rpc_call import sync_rpc_eth_call, async_rpc_eth_call
+from multicall.constants import CACHE_PATH
 
 COLUMNS = [
     "callId",
@@ -29,6 +30,10 @@ class CallRawData:
         self.block: int = block
         self.chainID = 1  # Ethereum only
         self.call_id: bytes = self.call.to_id(self.block)
+
+    def to_label_to_output(self) -> dict[str, any]:
+        # not certain this will work with all not a contract, and failed to run contract
+        return self.call.decode_output(self.response)
 
     def convert_to_format_to_save_in_cache_db(self):
         record = self.to_record()
@@ -121,13 +126,6 @@ class Multicall:
         ids = [call.to_id(block) for call in self.calls]
         return ids
 
-    # def make_each_call_to_raw_call_data(self, w3: Web3, block: int) -> list[CallRawData]:
-    #     rpc_args = self.to_rpc_call_args(block)
-    #     raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
-    #     decoded_outputs = self.multicall_sig.decode_data(raw_bytes_output)[0]
-    #     call_raw_data_list = self._decoded_outputs_to_call_raw_data(decoded_outputs, block)
-    #     return call_raw_data_list
-
     def _decoded_outputs_to_call_raw_data(self, decoded_outputs, block):
         call_raw_data = []
         for result, call in zip(decoded_outputs, self.calls):
@@ -168,13 +166,59 @@ class Multicall:
             records.append(data)
         return records
 
-    def __call__(self, w3: Web3, block: int):
-        rpc_args = self.to_rpc_call_args(block)
+    def __call__(self, w3: Web3, block_id: int | str = "latest", cache="default") -> dict[str, any]:
+        cache_path = CACHE_PATH if cache == "default" else cache
+
+        if isinstance(block_id, int):
+
+            from multicall.cache import get_data_from_disk, df_to_CallRawData
+
+            # we have everything already, happy path
+            found_df, not_found_df = get_data_from_disk(self.calls, [block_id], cache_path)
+            if len(not_found_df) == 0:
+                # most happy path we have everything so we can return it
+                all_raw_call_data = df_to_CallRawData(found_df, self.calls, [block_id])
+                all_label_to_outputs = [data.to_label_to_output() for data in all_raw_call_data]
+                label_to_output = dict()
+                for l_to_o in all_label_to_outputs:
+                    label_to_output.update(l_to_o)
+                label_to_output["block"] = block_id
+                return label_to_output
+
+            # we don't have at least one call, get everything
+
+            if block_id < w3.eth.get_block("finalized").number:
+                # we should finalize this
+                from multicall.fetch_multicall_across_blocks import (
+                    simple_sequential_fetch_multicalls_across_blocks_and_save,
+                )
+
+                simple_sequential_fetch_multicalls_across_blocks_and_save(
+                    calls=self.calls, blocks=[block_id], w3=w3, cache_path=cache_path
+                )
+
+                found_df, not_found_df = get_data_from_disk(self.calls, [block_id], cache_path)
+
+                if len(not_found_df) == 0:  # maybe add redundnet check for len(found_df) == len(calls)
+                    # most happy path we have everything so we can return it
+                    all_raw_call_data = df_to_CallRawData(found_df, self.calls, [block_id])
+                    all_label_to_outputs = [data.to_label_to_output() for data in all_raw_call_data]
+                    label_to_output = dict()
+                    for l_to_o in all_label_to_outputs:
+                        label_to_output.update(l_to_o)
+                    label_to_output["block"] = block_id
+                    return label_to_output
+                else:
+                    raise ValueError("Expected to save data and did not find it in the db")
+
+        # not finalized and should not be
+        rpc_args = self.to_rpc_call_args(block_id)
         raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
-        label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)
+        label_to_output = self.process_raw_bytes_output(raw_bytes_output, block_id)
         return label_to_output
 
     async def async_call(self, w3: Web3, block: int, session: aiohttp.ClientSession, rate_limiter: AsyncLimiter):
+        # TODO add caching
         rpc_args = self.to_rpc_call_args(block)
         raw_bytes_output = await async_rpc_eth_call(w3, rpc_args, session, rate_limiter)
         label_to_output = self.process_raw_bytes_output(raw_bytes_output, block)

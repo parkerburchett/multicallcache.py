@@ -14,13 +14,6 @@ from multicall.multicall import Multicall
 from multicall.utils import flatten, time_function
 from multicall.cache import save_data, get_data_from_disk
 from multicall.constants import CACHE_PATH
-import pandas as pd
-from pathlib import Path
-
-from multicall.call import Call
-from multicall.multicall import Multicall
-from multicall.utils import time_function, flatten
-from multicall.constants import CACHE_PATH
 
 
 @time_function

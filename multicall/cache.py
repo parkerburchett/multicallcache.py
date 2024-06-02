@@ -5,7 +5,7 @@ import os
 
 from multicall.call import Call
 from multicall.multicall import CallRawData, Multicall
-from multicall.utils import time_function, flatten
+from multicall.utils import flatten
 
 # from multicall.constants import CACHE_PATH
 
@@ -34,7 +34,7 @@ log attempted to read X rows, found y rows and did not find z rows from dbPATH
 
 
 COLUMNS = [
-    "callId",
+    "callId",  # sha256(chainId, target, signature, arguements, block)
     "target",
     "signature",
     "argumentsAsStr",
@@ -118,7 +118,9 @@ def isCached(call: Call, block: int, cache_path: Path) -> bool:
             return False
 
 
-def get_isCached_success_raw_bytes_output_for_a_single_call(call: Call, block: int, cache_path: Path) -> tuple[bool, bytes] | None:
+def get_isCached_success_raw_bytes_output_for_a_single_call(
+    call: Call, block: int, cache_path: Path
+) -> tuple[bool, bytes] | None:
     """run one call and return success and block or None if the call is not indexed"""
 
     call_id = call.to_id(block)
@@ -138,10 +140,10 @@ def get_isCached_success_raw_bytes_output_for_a_single_call(call: Call, block: i
         if result is not None:
             return (True, result[0], result[1])  # we have it, success, response
         else:
-            return (False, None, None) # we have it, success, response
+            return (False, None, None)  # we have it, success, response
 
 
-@time_function
+# @time_function
 def get_data_from_disk(calls: list[Call], blocks: list[int], cache_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Read from disk. Returns found_df and not_found_df
@@ -164,9 +166,37 @@ def get_data_from_disk(calls: list[Call], blocks: list[int], cache_path: Path) -
     return found_df, not_found_df
 
 
+def df_to_CallRawData(df: pd.DataFrame, calls: list[Call], blocks: list[int]) -> list[CallRawData]:
+
+    callIds_to_call_and_block = dict()  # callId -> tuple(call, block)
+
+    for call in calls:
+        for block in blocks:
+            call_id = call.to_id(block)
+            callIds_to_call_and_block[call_id] = (call, block)
+
+    call_id_to_success_and_response = df.set_index("callId")[["success", "response"]].apply(tuple, axis=1).to_dict()
+
+    all_raw_call_data = []
+    for call_id in df["callId"]:
+        call, block = callIds_to_call_and_block[call_id]
+        success, response = call_id_to_success_and_response[call_id]
+        a_call_raw_data = CallRawData(call=call, block=block, success=success, response=response)
+        all_raw_call_data.append(a_call_raw_data)
+
+    return all_raw_call_data
+
+
 def fetch_all_data(cache_path: Path) -> pd.DataFrame:
     with sqlite3.connect(cache_path) as conn:
         return pd.read_sql_query("SELECT * FROM multicallCache", conn)
+
+
+def get_db_size(cache_path: Path) -> int:
+    with sqlite3.connect(cache_path) as conn:
+        # TODO not efficient
+        df = pd.read_sql_query("SELECT * FROM multicallCache", conn)
+        return len(df)
 
 
 def create_db(db_path: Path):
@@ -174,6 +204,7 @@ def create_db(db_path: Path):
         raise ValueError(f"cannot create a db at {db_path=} because it already exists")
     else:
         with open(db_path, "w") as fp:
+            del fp
             pass
 
     with sqlite3.connect(db_path) as conn:
@@ -200,4 +231,4 @@ def delete_db(db_path: Path):
     if os.path.exists(db_path):
         os.remove(db_path)
     else:
-        raise ValueError(f"Cannot remove a db at {db_path=} because it does not exist exists")
+        raise ValueError(f"Cannot remove a db at {db_path=} because it does not exist")

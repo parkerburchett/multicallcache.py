@@ -11,7 +11,6 @@ from web3 import Web3, exceptions
 from multicall.signature import Signature
 from multicall.constants import CACHE_PATH
 
-# what does a failed call look like?
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
 GAS_LIMIT = 55_000_000
@@ -20,6 +19,7 @@ NOT_A_CONTRACT_REVERT_MESSAGE = "reverted_not_a_contract"
 REVERTED_UNKNOWN_MESSAGE = "REVERTED"
 
 
+# TODO add these to unit tests
 class HandlingFunctionFailed(Exception):
     def __init__(self, handling_function: Callable, decoded_value: Any, exception: Exception):
         function_source_code = inspect.getsource(handling_function)  #
@@ -36,7 +36,7 @@ class HandlingFunctionFailed(Exception):
 
 class ReturnDataAndHandlingFunctionLengthMismatch(Exception):
     def __init__(self, message):
-        self.message = message
+        self.message = message  # this doesn't seem like the right syntax
         super().__init__(self.message)
 
 
@@ -141,24 +141,28 @@ class Call:
             from multicall.cache import get_isCached_success_raw_bytes_output_for_a_single_call
 
             # step 1 if we already have it return it, most happy path, only 1 call
-            isCached, success, raw_bytes_output = get_isCached_success_raw_bytes_output_for_a_single_call(self, block_id, cache_path)
+            isCached, success, raw_bytes_output = get_isCached_success_raw_bytes_output_for_a_single_call(
+                self, block_id, cache_path
+            )
             if isCached:
                 if success:
                     return self.decode_output(raw_bytes_output)
                 else:
                     raise exceptions.ContractLogicError()
-                
+
             if block_id < w3.eth.get_block("finalized").number:
                 _save_data(w3, self, block_id, cache_path)
                 # TODO gets exteranl data, saves it, then reads it from disk
                 # one read is redundent, can removes
-                isCached, success, raw_bytes_output = get_isCached_success_raw_bytes_output_for_a_single_call(self, block_id, cache_path)
+                isCached, success, raw_bytes_output = get_isCached_success_raw_bytes_output_for_a_single_call(
+                    self, block_id, cache_path
+                )
                 if isCached:
                     if success:
                         return self.decode_output(raw_bytes_output)
                     else:
                         raise exceptions.ContractLogicError()
-            
+
             else:
                 # make a call and don't save the result
                 rpc_args = self.to_rpc_call_args(block_id)

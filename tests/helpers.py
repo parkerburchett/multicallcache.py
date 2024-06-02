@@ -1,4 +1,3 @@
-from multicall.call import Call
 from pathlib import Path
 
 import sqlite3
@@ -7,51 +6,31 @@ import string
 import multiprocessing
 from multiprocessing import Pool
 import pickle
-from pathlib import Path
 
-import pytest
 from multicall.cache import create_db, delete_db
-import os
 from multicall.constants import TEST_CACHE_PATH, CACHE_PATH
-from multicall.call import Call
 from multicall.utils import time_function
+from multicall.call import Call
 
 test_data_path = Path(__file__).parent / "test_data"
 
 uniswap_v3_usdc_weth_pool = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"
 weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-
-
-# @pytest.fixture(scope="session", autouse=True)
-# def setup_session():
-#     create_db(TEST_CACHE_PATH)
-#     yield
-#     delete_db(TEST_CACHE_PATH)
-
-
-def preTest():
-    create_db(TEST_CACHE_PATH)
-
-
-def postTest():
-    delete_db(TEST_CACHE_PATH)
+TEST_BLOCK = 18_000_000
 
 
 def refresh_db(func):
     # makes a fresh db between tests
     def wrapper(*args, **kwargs):
-        # Run pre-test
-        preTest()
+        create_db(TEST_CACHE_PATH)
         try:
-            # Execute the function
             result = func(*args, **kwargs)
             return result
         except KeyboardInterrupt:
             raise
         finally:
-            # Run post-test
-            postTest()
+            delete_db(TEST_CACHE_PATH)
 
     return wrapper
 
