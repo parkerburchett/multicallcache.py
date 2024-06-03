@@ -4,9 +4,9 @@ from pathlib import Path
 import os
 
 from multicall.call import Call
-from multicall.constants import CACHE_PATH, TEST_CACHE_PATH
+from multicall.constants import CACHE_PATH
 from multicall.multicall import CallRawData, Multicall
-from multicall.utils import flatten
+from multicall.utils import flatten, time_function
 
 # from multicall.constants import CACHE_PATH
 
@@ -144,27 +144,95 @@ def get_isCached_success_raw_bytes_output_for_a_single_call(
             return (False, None, None)  # we have it, success, response
 
 
-# @time_function
+@time_function
 def get_data_from_disk(calls: list[Call], blocks: list[int], cache_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Read from disk. Returns found_df and not_found_df
+    Read from disk in chunks to manage memory and performance. Returns found_df and not_found_df.
     """
     multicall = Multicall(calls)
+    # todo, speed up with threading, can be slow at scale
     empty_df = pd.DataFrame.from_records(flatten([multicall.to_list_of_empty_records(block) for block in blocks]))
     call_ids = empty_df["callId"].to_list()
 
-    with sqlite3.connect(cache_path) as conn:
-        query = f"""
-            SELECT * FROM multicallCache
-            WHERE callId IN ({','.join('?' * len(call_ids))})
-        """
-        found_df = pd.read_sql_query(query, conn, params=call_ids)
-        found_df.columns = COLUMNS
+    chunk_size = 100_000
+    found_dfs = []
 
-    call_ids_not_already_found = set(empty_df["callId"]).difference(found_df["callId"])
+    with sqlite3.connect(cache_path) as conn:
+        for i in range(0, len(call_ids), chunk_size):
+            # Prepare the SQL query with placeholders for current chunk
+            current_ids = call_ids[i : i + chunk_size]
+            placeholders = ",".join("?" for _ in current_ids)
+            query = f"""
+                SELECT * FROM multicallCache
+                WHERE callId IN ({placeholders})
+            """
+            # Fetch data for the current chunk
+            chunk_df = pd.read_sql_query(query, conn, params=current_ids)
+            chunk_df.columns = COLUMNS
+            found_dfs.append(chunk_df)
+
+    # Concatenate all dataframes from each chunk
+    found_df = pd.concat(found_dfs, ignore_index=True) if found_dfs else pd.DataFrame()
+
+    # Determine which call_ids were not found in the cache
+    call_ids_not_already_found = set(call_ids).difference(found_df["callId"])
     not_found_df = empty_df[empty_df["callId"].isin(call_ids_not_already_found)]
 
     return found_df, not_found_df
+
+
+# def get_data_from_disk(calls: list[Call], blocks: list[int], cache_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+#     """
+#     Read from disk. Returns found_df and not_found_df
+#     """
+#     multicall = Multicall(calls)
+#     empty_df = pd.DataFrame.from_records(flatten([multicall.to_list_of_empty_records(block) for block in blocks]))
+#     call_ids = empty_df["callId"].to_list()
+
+#     with sqlite3.connect(cache_path) as conn:
+#         query = f"""
+#             SELECT * FROM multicallCache
+#             WHERE callId IN ({','.join('?' * len(call_ids))})
+#         """
+#         found_df = pd.read_sql_query(query, conn, params=call_ids)
+#         found_df.columns = COLUMNS
+
+#     call_ids_not_already_found = set(empty_df["callId"]).difference(found_df["callId"])
+#     not_found_df = empty_df[empty_df["callId"].isin(call_ids_not_already_found)]
+
+#     return found_df, not_found_df
+
+# @timeFunction
+# def get_data_from_disk(calls, blocks, cache_path) -> tuple[pd.DataFrame, pd.DataFrame]:
+#     """
+#     Read from disk. Returns found_df and not_found_df by using a temporary table to handle large numbers of call_ids efficiently.
+#     """
+#     multicall = Multicall(calls)
+#     empty_df = pd.DataFrame.from_records(flatten([multicall.to_list_of_empty_records(block) for block in blocks]))
+#     call_ids = empty_df["callId"].to_list()
+
+#     with sqlite3.connect(str(cache_path)) as conn:
+#         # Create a temporary table to store call_ids
+#         conn.execute("CREATE TEMP TABLE IF NOT EXISTS temp_call_ids (id BLOB)")
+#         # Insert call_ids into the temporary table
+#         conn.executemany("INSERT INTO temp_call_ids (id) VALUES (?)", ((id,) for id in call_ids))
+
+#         # Select data joining the temporary table with the main cache table
+#         query = """
+#             SELECT mc.* FROM multicallCache mc
+#             JOIN temp_call_ids tc ON mc.callId = tc.id
+#         """
+#         found_df = pd.read_sql_query(query, conn)
+#         found_df.columns = COLUMNS  # Assuming COLUMNS is defined somewhere globally
+
+#         # Cleanup the temporary table
+#         conn.execute("DROP TABLE temp_call_ids")
+
+#     # Determine which call_ids were not found in the cache
+#     call_ids_not_already_found = set(call_ids).difference(found_df["callId"])
+#     not_found_df = empty_df[empty_df["callId"].isin(call_ids_not_already_found)]
+
+#     return found_df, not_found_df
 
 
 def df_to_CallRawData(df: pd.DataFrame, calls: list[Call], blocks: list[int]) -> list[CallRawData]:
@@ -188,10 +256,11 @@ def df_to_CallRawData(df: pd.DataFrame, calls: list[Call], blocks: list[int]) ->
     return all_raw_call_data
 
 
-def fetch_all_data(cache: Path = "defualt") -> pd.DataFrame:
+def fetch_all_data(cache: Path = "default") -> pd.DataFrame:
     cache_path = CACHE_PATH if cache == "default" else cache
     with sqlite3.connect(cache_path) as conn:
-        return pd.read_sql_query("SELECT * FROM multicallCache", conn)
+        df = pd.read_sql_query("SELECT * FROM multicallCache LIMIT 1", conn)
+    return df
 
 
 def get_db_size(cache_path: Path) -> int:

@@ -1,11 +1,8 @@
-import os
-
 import pytest
-from web3 import Web3
 import web3
 from multicall.call import Call, NOT_A_CONTRACT_REVERT_MESSAGE
 from multicall.constants import TEST_CACHE_PATH, W3
-from helpers import weth_bal, usdc_bal, refresh_testing_db, TEST_BLOCK
+from helpers import refresh_testing_db, TEST_BLOCK
 
 
 cbETH = "0xBe9895146f7AF43049ca1c1AE358B0541Ea49704"

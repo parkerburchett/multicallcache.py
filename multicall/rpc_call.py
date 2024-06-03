@@ -39,7 +39,10 @@ async def async_rpc_eth_call(w3: HTTPProvider, rpc_args, session: aiohttp.Client
                     )
                     await asyncio.sleep(2**attempt)  # Exponential backoff
                 else:
-                    response.raise_for_status()
+                    try:
+                        response.raise_for_status()
+                    except TimeoutError:
+                        continue
 
 
 def sync_rpc_eth_call(w3, rpc_args):
@@ -48,7 +51,10 @@ def sync_rpc_eth_call(w3, rpc_args):
     data = json.dumps({"params": rpc_args, "method": "eth_call", "id": 1, "jsonrpc": "2.0"})
 
     for attempt in range(RETRY_COUNT):
-        response = requests.post(endpoint_uri, headers=headers, data=data, timeout=10)
+        try:
+            response = requests.post(endpoint_uri, headers=headers, data=data, timeout=10)
+        except TimeoutError:
+            continue
         if response.status_code == 200:
             data = response.json()
             return bytes.fromhex(data["result"][2:])

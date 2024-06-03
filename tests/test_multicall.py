@@ -1,7 +1,3 @@
-import os
-
-from dotenv import load_dotenv
-from web3 import Web3
 from multicall.multicall import Multicall
 from multicall.call import Call, CALL_FAILED_REVERT_MESSAGE, NOT_A_CONTRACT_REVERT_MESSAGE
 from helpers import TEST_BLOCK, refresh_testing_db, identity_function, TEST_CACHE_PATH
