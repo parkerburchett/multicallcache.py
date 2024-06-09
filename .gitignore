@@ -9,5 +9,4 @@ cache/
 .env
 venv
 conf.json
-*.sqllite
-multicall/multicallCache.sqlite
+*.sqlite
