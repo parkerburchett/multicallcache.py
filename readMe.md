@@ -13,7 +13,7 @@
 - Stretch goal: Add some basic sql querying functionality in example notebook
 - Maybe some kind of lock that prevents writing to the DB without going through official means. 
 - Add testing for other chains
-- Add testing for blocks before multicall contracts where deployed. 
+- Add testing for blocks before multicall contracts where deployed. Currently calls fails before 12336033,
 - Minimize RPC calls for finalized blocks, maybe query finalized block at import time, and only update if asked to?
 - Add testing for caching behavior of `multicall.Call.__call__`. Make sure to delete cached data after testing.
 - in .`__call__()` first try to read from disk.

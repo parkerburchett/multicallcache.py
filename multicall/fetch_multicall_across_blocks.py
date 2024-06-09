@@ -7,6 +7,7 @@ from web3 import Web3
 import numpy as np
 from pathlib import Path
 from aiolimiter import AsyncLimiter
+import nest_asyncio
 
 
 from multicall.call import Call
@@ -15,15 +16,18 @@ from multicall.utils import flatten, time_function
 from multicall.cache import save_data, get_data_from_disk
 from multicall.constants import CACHE_PATH
 
+nest_asyncio.apply()
 
+
+# there is testing to be done here on how to get the most juice out of alchemy
 @time_function
 def fetch_save_and_return(
-    calls: list[Call],
+    calls: list[Call],  # TODO, also might want to be able to pass it a multicall? maybe?
     blocks: list[int],
     w3: Web3,
     max_calls_per_second: int = 10,
     cache="default",
-    max_calls_per_rpc_call: int = 3_000,
+    max_calls_per_rpc_call: int = 300,
 ) -> pd.DataFrame:
     """
     Primary Entry Point
@@ -32,6 +36,9 @@ def fetch_save_and_return(
     externally fetch  and sve all the data that is missing
     read entire saved data from disk and return it processed.
     """
+    # TODO add some kind of progress bar
+    # reading locally
+    # progress bar
     if len(calls) == 0:
         raise ValueError("len(calls) cannot be 0")
     if len(blocks) == 0:
@@ -40,9 +47,12 @@ def fetch_save_and_return(
     cache_path = CACHE_PATH if cache == "default" else cache
 
     found_df, not_found_df = get_data_from_disk(calls, blocks, cache_path)
-    print(f"first attempt    {found_df.shape=}      {not_found_df.shape=} \n")
+    print(f"{found_df.shape=}      {not_found_df.shape=} \n")
     blocks_left = [int(b) for b in not_found_df["block"].unique()]
+
+    # TODO, currently fails in jupyter, can't use asycio.run inside of jupyter
     if len(blocks_left) > 0:
+        # TODO fix timeout errors
         print(
             f"Some data not found, making {len(blocks_left)} external calls at a rate of {max_calls_per_second} call /second \n"
         )
@@ -58,7 +68,7 @@ def fetch_save_and_return(
             )
         )
         found_df, not_found_df = get_data_from_disk(calls, blocks, cache_path)
-        print(f"Second attempt    {found_df.shape=}      {not_found_df.shape=} \n")
+        print(f"After fetching missing data {found_df.shape=}      {not_found_df.shape=} \n")
         pass
     else:
         print("all data on disk, no external calls needed!!!")
@@ -122,7 +132,7 @@ async def async_fetch_multicalls_across_blocks_and_save(
         return call_raw_data
 
 
-@time_function
+# fast enough even at size
 def _raw_bytes_data_df_to_processed_block_wise_data_df(
     raw_bytes_data_df: pd.DataFrame, calls: list[Call], blocks: list[int]
 ) -> pd.DataFrame:
