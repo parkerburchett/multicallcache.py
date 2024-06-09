@@ -27,7 +27,7 @@ def fetch_save_and_return(
     w3: Web3,
     max_calls_per_second: int = 10,
     cache="default",
-    max_calls_per_rpc_call: int = 1000,
+    max_calls_per_rpc_call: int = 300,
 ) -> pd.DataFrame:
     """
     Primary Entry Point
@@ -36,6 +36,9 @@ def fetch_save_and_return(
     externally fetch  and sve all the data that is missing
     read entire saved data from disk and return it processed.
     """
+    # TODO add some kind of progress bar
+    # reading locally
+    # progress bar
     if len(calls) == 0:
         raise ValueError("len(calls) cannot be 0")
     if len(blocks) == 0:
