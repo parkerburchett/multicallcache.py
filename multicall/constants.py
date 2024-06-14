@@ -13,16 +13,15 @@ CACHE_PATH = Path(__file__).parent / "multicallCache.sqlite"
 TEST_CACHE_PATH = Path(__file__).parent / "testing_multicallCache.sqlite"
 
 
-BASE_MUlTICALL_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11'
+BASE_MUlTICALL_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11"
 
 
 @dataclass
 class NetworkConstants:
     chainId: int
     name: str
-    multicallAddress: str 
+    multicallAddress: str
     # only needs to have this function Signature("tryAggregate(bool,(address,bytes)[])((bool,bytes)[])")
-    
 
 
 # I don't like this pattern

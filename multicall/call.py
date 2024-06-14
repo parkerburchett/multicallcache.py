@@ -7,6 +7,7 @@ import inspect
 from eth_utils import to_checksum_address
 from web3 import Web3, exceptions
 
+
 # from multicall.cache import get_one_value # circular import issues
 from multicall.signature import Signature
 from multicall.constants import CACHE_PATH
@@ -47,6 +48,7 @@ class FailedToBuildCalldata(Exception):
 
 
 class Call:
+    # todo, if handling functions is empty, default to the identity funciton 
     def __init__(
         self,
         target: str,
@@ -74,7 +76,8 @@ class Call:
         self.signature = Signature(signature)
         self.arguments = arguments
         self.calldata = self.signature.encode_data(self.arguments)
-        self.chain_id = "1"  # hardcode for Ethereum
+        self.chain_id = "1"  # hardcode for Ethereum TODO add check for base
+    
 
     def to_rpc_call_args(self, block_id: int | str):
         """Convert this call into the format to send to a rpc node api request"""

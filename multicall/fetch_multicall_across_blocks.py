@@ -14,7 +14,7 @@ from multicall.call import Call
 from multicall.multicall import Multicall
 from multicall.utils import flatten, time_function
 from multicall.cache import save_data, get_data_from_disk
-from multicall.constants import CACHE_PATH
+from multicall.constants import CACHE_PATH, BASE_MUlTICALL_ADDRESS
 
 nest_asyncio.apply()
 
@@ -112,6 +112,11 @@ async def async_fetch_multicalls_across_blocks_and_save(
     else:
         chunks_of_calls = np.array_split(calls, (len(calls) // max_calls_per_rpc_call) + 1)
         multicalls = [Multicall(list(c)) for c in chunks_of_calls]
+
+    if w3.eth.chain_id == 8453:
+        #TODO jank fix later
+        for m in multicalls:
+            m.multicall_address = BASE_MUlTICALL_ADDRESS
 
     rate_limiter = AsyncLimiter(rate_limit_per_second, time_period=1)
     timeout = aiohttp.ClientTimeout(total=10)

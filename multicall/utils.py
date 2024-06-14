@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterable, List
 import eth_retry
 from web3 import Web3
 
-from multicall.constants import Network
+# from multicall.constants import Network
 import time
 
 chainids: Dict[Web3, int] = {}
