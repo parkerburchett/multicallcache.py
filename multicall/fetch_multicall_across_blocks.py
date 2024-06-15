@@ -114,7 +114,7 @@ async def async_fetch_multicalls_across_blocks_and_save(
         multicalls = [Multicall(list(c)) for c in chunks_of_calls]
 
     if w3.eth.chain_id == 8453:
-        #TODO jank fix later
+        # TODO jank fix later
         for m in multicalls:
             m.multicall_address = BASE_MUlTICALL_ADDRESS
 

@@ -48,7 +48,7 @@ class FailedToBuildCalldata(Exception):
 
 
 class Call:
-    # todo, if handling functions is empty, default to the identity funciton 
+    # todo, if handling functions is empty, default to the identity funciton
     def __init__(
         self,
         target: str,
@@ -77,7 +77,6 @@ class Call:
         self.arguments = arguments
         self.calldata = self.signature.encode_data(self.arguments)
         self.chain_id = "1"  # hardcode for Ethereum TODO add check for base
-    
 
     def to_rpc_call_args(self, block_id: int | str):
         """Convert this call into the format to send to a rpc node api request"""
