@@ -84,7 +84,7 @@ class Call:
                 "to": self.target,
                 "data": self.calldata,
                 "gas": hex(GAS_LIMIT),
-            },  # if using w3.eth.call(*rpc_args) , don't need ot hex(gas limit)
+            },  # if using w3.eth.call(*rpc_args) , don't need to hex(gas limit)
             block_id_for_rpc_call,
         ]
         return args
