@@ -11,6 +11,7 @@ from web3 import Web3, exceptions
 # from multicall.cache import get_one_value # circular import issues
 from multicall.signature import Signature
 from multicall.constants import CACHE_PATH
+from multicall.utils import chain_id
 
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
@@ -48,7 +49,7 @@ class FailedToBuildCalldata(Exception):
 
 
 class Call:
-    # todo, if handling functions is empty, default to the identity funciton
+    # todo, if handling functions is empty, default to the identity function
     def __init__(
         self,
         target: str,
@@ -56,6 +57,7 @@ class Call:
         arguments: tuple[str],
         data_labels: tuple[str] | str,
         handling_functions: Tuple[Callable] | Callable,
+        w3: Web3,
     ) -> None:
         """
         target: the address that you want to make a function call on.
@@ -76,7 +78,7 @@ class Call:
         self.signature = Signature(signature)
         self.arguments = arguments
         self.calldata = self.signature.encode_data(self.arguments)
-        self.chain_id = "1"  # hardcode for Ethereum TODO add check for base
+        self.w3 = w3
 
     def to_rpc_call_args(self, block_id: int | str):
         """Convert this call into the format to send to a rpc node api request"""
@@ -86,7 +88,7 @@ class Call:
                 "to": self.target,
                 "data": self.calldata,
                 "gas": hex(GAS_LIMIT),
-            },  # if using w3.eth.call(*rpc_args) , don't need ot hex(gas limit)
+            },
             block_id_for_rpc_call,
         ]
         return args
@@ -118,7 +120,7 @@ class Call:
             raise ValueError("Must define a block to make a call ID")
 
         call_id = (
-            self.chain_id
+            str(chain_id(self.w3))
             + " "
             + self.target
             + " "
@@ -133,7 +135,7 @@ class Call:
         hash_object.update(call_id.encode("utf-8"))
         return hash_object.digest()
 
-    def __call__(self, w3: Web3, block_id: int | str = "latest", cache="default") -> dict[str, Any]:
+    def __call__(self, block_id: int | str = "latest", cache="default") -> dict[str, Any]:
         """Primary entry point, for fast naive use"""
         # happy path
         cache_path = CACHE_PATH if cache == "default" else cache
@@ -153,8 +155,8 @@ class Call:
                 else:
                     raise exceptions.ContractLogicError()
 
-            if block_id < w3.eth.get_block("finalized").number:
-                _save_data(w3, self, block_id, cache_path)
+            if block_id < self.w3.eth.get_block("finalized").number:
+                _save_data(self.w3, self, block_id, cache_path)
                 # TODO gets external data, saves it, then reads it from disk
                 # one read is redundent, can remove
                 isCached, success, raw_bytes_output = get_isCached_success_raw_bytes_output_for_a_single_call(
@@ -169,7 +171,7 @@ class Call:
             else:
                 # make a call and don't save the result
                 rpc_args = self.to_rpc_call_args(block_id)
-                raw_bytes_output = w3.eth.call(*rpc_args)  # might raise exceptions.ContractLogicError()
+                raw_bytes_output = self.w3.eth.call(*rpc_args)  # might raise exceptions.ContractLogicError()
                 return self.decode_output(raw_bytes_output)
 
 

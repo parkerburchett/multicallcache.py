@@ -6,7 +6,8 @@ import pickle
 from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
 from multicall.signature import Signature
 from multicall.rpc_call import sync_rpc_eth_call, async_rpc_eth_call
-from multicall.constants import CACHE_PATH
+from multicall.constants import CACHE_PATH, MULTICALL3_ADDRESSES, Network
+from multicall.utils import chain_id
 
 COLUMNS = [
     "callId",
@@ -28,7 +29,7 @@ class CallRawData:
         self.success: bool = success
         self.response: bytes = response
         self.block: int = block
-        self.chainID = 1  # Ethereum only
+        self.chainID = chain_id(call.w3)
         self.call_id: bytes = self.call.to_id(self.block)
 
     def to_label_to_output(self) -> dict[str, any]:
@@ -68,10 +69,10 @@ class Multicall:
         self.calls = calls
         # function tryAggregate(bool requireSuccess, Call[] memory calls) public returns (Result[] memory returnData)
         self.multicall_sig = Signature("tryAggregate(bool,(address,bytes)[])((bool,bytes)[])")
-        self.multicall_address = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696"  # only support Ethereum mainnet
+        self.w3 = self.calls[0].w3
+        self.multicall_address = MULTICALL3_ADDRESSES[Network(chain_id(self.w3))]
 
         multicall_args = []
-
         self._ensure_no_duplicate_names_in_calls(calls)
 
         for call in self.calls:
@@ -166,7 +167,7 @@ class Multicall:
             records.append(data)
         return records
 
-    def __call__(self, w3: Web3, block_id: int | str = "latest", cache="default") -> dict[str, any]:
+    def __call__(self, block_id: int | str = "latest", cache="default") -> dict[str, any]:
         cache_path = CACHE_PATH if cache == "default" else cache
 
         if isinstance(block_id, int):
@@ -187,14 +188,14 @@ class Multicall:
 
             # we don't have at least one call, get everything
 
-            if block_id < w3.eth.get_block("finalized").number:
+            if block_id < self.w3.eth.get_block("finalized").number:
                 # we should finalize this
                 from multicall.fetch_multicall_across_blocks import (
                     simple_sequential_fetch_multicalls_across_blocks_and_save,
                 )
 
                 simple_sequential_fetch_multicalls_across_blocks_and_save(
-                    calls=self.calls, blocks=[block_id], w3=w3, cache_path=cache_path
+                    calls=self.calls, blocks=[block_id], w3=self.w3, cache_path=cache_path
                 )
 
                 found_df, not_found_df = get_data_from_disk(self.calls, [block_id], cache_path)
@@ -213,6 +214,6 @@ class Multicall:
 
         # not finalized and should not be
         rpc_args = self.to_rpc_call_args(block_id)
-        raw_bytes_output = sync_rpc_eth_call(w3, rpc_args)
+        raw_bytes_output = sync_rpc_eth_call(self.w3, rpc_args)
         label_to_output = self.process_raw_bytes_output(raw_bytes_output, block_id)
         return label_to_output

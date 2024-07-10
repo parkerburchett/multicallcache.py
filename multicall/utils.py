@@ -3,7 +3,6 @@ from typing import Any, Dict, Iterable, List
 import eth_retry
 from web3 import Web3
 
-# from multicall.constants import Network
 import time
 
 chainids: Dict[Web3, int] = {}
@@ -25,7 +24,6 @@ def chunks(lst: List, n: int):
 
 
 @eth_retry.auto_retry
-# TODO, this should be hardcoded and updated with PRs
 def chain_id(w3: Web3) -> int:
     """
     Returns chain id for an instance of Web3. Helps save repeat calls to node.
@@ -33,7 +31,7 @@ def chain_id(w3: Web3) -> int:
     try:
         return chainids[w3]
     except KeyError:
-        chainids[w3] = w3.eth.chain_id
+        chainids[w3] = w3.eth.chain_id  # makes a http call
         return chainids[w3]
 
 
@@ -54,12 +52,6 @@ def raise_if_exception(obj: Any) -> None:
 def raise_if_exception_in(iterable: Iterable[Any]) -> None:
     for obj in iterable:
         raise_if_exception(obj)
-
-
-def state_override_supported(w3: Web3) -> bool:
-    if chain_id(w3) in [Network.Gnosis]:
-        return False
-    return True
 
 
 def time_function(func):
