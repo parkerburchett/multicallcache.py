@@ -24,7 +24,7 @@ nest_asyncio.apply()
 def fetch_save_and_return(
     calls: list[Call],  # TODO, also might want to be able to pass it a multicall? maybe?
     blocks: list[int],
-    w3: Web3,
+    w3: Web3,  # TODO, w3 here should not be needed since it is already in each call
     max_calls_per_second: int = 10,
     cache="default",
     max_calls_per_rpc_call: int = 300,

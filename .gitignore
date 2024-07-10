@@ -10,3 +10,4 @@ cache/
 venv
 conf.json
 *.sqlite
+multicall/multicallCache.sqlite

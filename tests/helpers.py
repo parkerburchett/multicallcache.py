@@ -8,7 +8,7 @@ from multiprocessing import Pool
 import pickle
 
 from multicall.cache import create_db, delete_db
-from multicall.constants import TEST_CACHE_PATH, CACHE_PATH
+from multicall.constants import TEST_CACHE_PATH, CACHE_PATH, W3
 from multicall.utils import time_function
 from multicall.call import Call
 
@@ -67,39 +67,19 @@ weth_bal = Call(
     (uniswap_v3_usdc_weth_pool),
     "weth_bal",
     to_str,
+    W3,
 )
 
 weth_bal2 = Call(
-    weth,
-    "balanceOf(address)(uint256)",
-    ("0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5"),
-    "weth_bal2",
-    to_str,
+    weth, "balanceOf(address)(uint256)", ("0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5"), "weth_bal2", to_str, W3
 )
 
+usdc_bal = Call(usdc, "balanceOf(address)(uint256)", (uniswap_v3_usdc_weth_pool), "usdc_bal", to_str, W3)
 
-usdc_bal = Call(
-    usdc,
-    "balanceOf(address)(uint256)",
-    (uniswap_v3_usdc_weth_pool),
-    "usdc_bal",
-    to_str,
-)
-
-invalid_function = Call(
-    usdc,
-    "functionDoesNotExist()(uint256)",
-    (),
-    "functionDoesNotExist",
-    to_str,
-)
+invalid_function = Call(usdc, "functionDoesNotExist()(uint256)", (), "functionDoesNotExist", to_str, W3)
 
 target_has_no_code = Call(
-    "0x0000000000000000000000000000000000000000",
-    "functionDoesNotExist()(uint256)",
-    (),
-    "notAContract",
-    to_str,
+    "0x0000000000000000000000000000000000000000", "functionDoesNotExist()(uint256)", (), "notAContract", to_str, W3
 )
 
 

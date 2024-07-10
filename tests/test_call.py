@@ -15,22 +15,16 @@ def identity_function(value):
 
 @refresh_testing_db
 def test_single_return_value():
-    balance_of_call = Call(
-        cbETH,
-        "balanceOf(address)(uint256)",
-        (cbETH_holder),
-        "balanceOf",
-        identity_function,
-    )
-    assert balance_of_call(W3, TEST_BLOCK, TEST_CACHE_PATH) == {
+    balance_of_call = Call(cbETH, "balanceOf(address)(uint256)", (cbETH_holder), "balanceOf", identity_function, W3)
+    assert balance_of_call(TEST_BLOCK, TEST_CACHE_PATH) == {
         "balanceOf": 32431674561658258136000
     }, "balance_of_call failed"
 
-    name_call = Call(cbETH, "name()(string)", (), "name", identity_function)
-    assert name_call(W3, TEST_BLOCK, TEST_CACHE_PATH) == {"name": "Coinbase Wrapped Staked ETH"}, "name_call failed"
+    name_call = Call(cbETH, "name()(string)", (), "name", identity_function, W3)
+    assert name_call(TEST_BLOCK, TEST_CACHE_PATH) == {"name": "Coinbase Wrapped Staked ETH"}, "name_call failed"
 
-    total_supply_call = Call(cbETH, "totalSupply()(uint256)", (), "totalSupply", identity_function)
-    assert total_supply_call(W3, TEST_BLOCK, TEST_CACHE_PATH) == {
+    total_supply_call = Call(cbETH, "totalSupply()(uint256)", (), "totalSupply", identity_function, W3)
+    assert total_supply_call(TEST_BLOCK, TEST_CACHE_PATH) == {
         "totalSupply": 1224558113282286488129522
     }, "total_supply_call failed"
 
@@ -45,13 +39,14 @@ def test_multiple_return_values():
         (),
         ("paused", "pauseWindowEndTime", "bufferPeriodEndTime"),
         (identity_function, identity_function, identity_function),
+        W3,
     )
     expected = {
         "paused": False,
         "pauseWindowEndTime": 1626633407,
         "bufferPeriodEndTime": 1629225407,
     }
-    assert vault_get_paused_state(W3, TEST_BLOCK, TEST_CACHE_PATH) == expected, "vault_get_paused_state failed"
+    assert vault_get_paused_state(TEST_BLOCK, TEST_CACHE_PATH) == expected, "vault_get_paused_state failed"
 
     pool_id = bytes.fromhex("1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112")
     vault_get_pool_tokens = Call(
@@ -60,6 +55,7 @@ def test_multiple_return_values():
         pool_id,
         ("tokens", "balances", "lastChangeBlock"),
         (identity_function, identity_function, identity_function),
+        W3,
     )
 
     expected = {
@@ -70,19 +66,19 @@ def test_multiple_return_values():
         "balances": (10218807022150565266010, 12892757262517014259928),
         "lastChangeBlock": 17999794,
     }
-    assert vault_get_pool_tokens(W3, TEST_BLOCK, TEST_CACHE_PATH) == expected, "vault_get_pool_tokens failed"
+    assert vault_get_pool_tokens(TEST_BLOCK, TEST_CACHE_PATH) == expected, "vault_get_pool_tokens failed"
 
 
 @refresh_testing_db
 def test_non_existent_function_call():
     bad_function_signature_call = Call(
-        cbETH, "thisFunctionDoesNotExist()(uint256)", (), "thisFunctionDoesNotExist", identity_function
+        cbETH, "thisFunctionDoesNotExist()(uint256)", (), "thisFunctionDoesNotExist", identity_function, W3
     )
 
     with pytest.raises(web3.exceptions.ContractLogicError):
         # we only know that thisFunctionDoesNotExist() doesn't exist when we try to call it.
-        # so it succeeded top build but reverts on the call
-        bad_function_signature_call(W3, TEST_BLOCK, TEST_CACHE_PATH)
+        # so it is constructed properly, but reverts when called
+        bad_function_signature_call(TEST_BLOCK, TEST_CACHE_PATH)
 
 
 @refresh_testing_db
@@ -95,8 +91,9 @@ def test_call_to_an_address_without_code():
         (),
         "thisFunctionDoesNotExist",
         identity_function,
+        W3,
     )
-    assert call_to_address_without_code(W3, TEST_BLOCK, TEST_CACHE_PATH) == {
+    assert call_to_address_without_code(TEST_BLOCK, TEST_CACHE_PATH) == {
         "thisFunctionDoesNotExist": NOT_A_CONTRACT_REVERT_MESSAGE
     }, "failed Call to address without code"
 
@@ -105,16 +102,10 @@ def test_malformed_calls():
     # I am stuck here. I can't figure out the import errors and catching the custom error
     # TODO: make sure this catches the correct exception
     with pytest.raises(Exception):
-        Call(
-            cbETH,
-            "totalSupply()(uint256)",
-            (cbETH),
-            "totalSupply",
-            identity_function,
-        )
+        Call(cbETH, "totalSupply()(uint256)", (cbETH), "totalSupply", identity_function, W3)
 
     with pytest.raises(Exception):
-        Call(cbETH, "balanceOf(address)(uint256)", (), "balanceOf", identity_function)
+        Call(cbETH, "balanceOf(address)(uint256)", (), "balanceOf", identity_function, W3)
 
     with pytest.raises(Exception):
-        Call(cbETH, "balanceOf(address)(uint256)", (int(100)), "balanceOf", identity_function)
+        Call(cbETH, "balanceOf(address)(uint256)", (int(100)), "balanceOf", identity_function, W3)
