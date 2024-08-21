@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 import os
 from web3 import Web3
 from helpers import refresh_testing_db, identity_function, TEST_CACHE_PATH
-from multicall.call import Call
+from multicallcache.call import Call
 
 
 load_dotenv()

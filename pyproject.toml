@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "multicall"
+name = "multicallcache"
 version = "0.5.1"
 description = "aggregate results from multiple ethereum contract calls with local caching"
 authors = ["banteg <banteeg@gmail.com>", "parker burchett <parkerburchett@gmail.com>"]

@@ -1,4 +1,4 @@
-from multicall import Call, MulticallV2
+from multicallcache import Call, MulticallV2
 from dotenv import load_dotenv
 import os
 from web3 import Web3

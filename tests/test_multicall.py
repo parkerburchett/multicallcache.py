@@ -1,7 +1,7 @@
-from multicall.multicall import Multicall
-from multicall.call import Call, CALL_FAILED_REVERT_MESSAGE, NOT_A_CONTRACT_REVERT_MESSAGE
+from multicallcache.multicall import Multicall
+from multicallcache.call import Call, CALL_FAILED_REVERT_MESSAGE, NOT_A_CONTRACT_REVERT_MESSAGE
 from helpers import TEST_BLOCK, refresh_testing_db, identity_function, TEST_CACHE_PATH
-from multicall.constants import W3
+from multicallcache.constants import W3
 
 # note: does not touch db
 

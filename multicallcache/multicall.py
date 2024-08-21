@@ -3,11 +3,11 @@ import aiohttp
 from aiolimiter import AsyncLimiter
 import pickle
 
-from multicall.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
-from multicall.signature import Signature
-from multicall.rpc_call import sync_rpc_eth_call, async_rpc_eth_call
-from multicall.constants import CACHE_PATH, MULTICALL3_ADDRESSES, Network
-from multicall.utils import chain_id
+from multicallcache.call import Call, GAS_LIMIT, CALL_FAILED_REVERT_MESSAGE
+from multicallcache.signature import Signature
+from multicallcache.rpc_call import sync_rpc_eth_call, async_rpc_eth_call
+from multicallcache.constants import CACHE_PATH, MULTICALL3_ADDRESSES, Network
+from multicallcache.utils import chain_id
 
 COLUMNS = [
     "callId",
@@ -172,7 +172,7 @@ class Multicall:
 
         if isinstance(block_id, int):
 
-            from multicall.cache import get_data_from_disk, df_to_CallRawData
+            from multicallcache.cache import get_data_from_disk, df_to_CallRawData
 
             # we have everything already, happy path
             found_df, not_found_df = get_data_from_disk(self.calls, [block_id], cache_path)
@@ -190,7 +190,7 @@ class Multicall:
 
             if block_id < self.w3.eth.get_block("finalized").number:
                 # we should finalize this
-                from multicall.fetch_multicall_across_blocks import (
+                from multicallcache.fetch_multicall_across_blocks import (
                     simple_sequential_fetch_multicalls_across_blocks_and_save,
                 )
 

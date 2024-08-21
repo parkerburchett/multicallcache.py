@@ -1,8 +1,8 @@
-from multicall.cache import isCached
-from multicall.multicall import Multicall
+from multicallcache.cache import isCached
+from multicallcache.multicall import Multicall
 
 from helpers import weth_bal, usdc_bal, refresh_testing_db, TEST_BLOCK
-from multicall.constants import TEST_CACHE_PATH, W3
+from multicallcache.constants import TEST_CACHE_PATH, W3
 
 
 @refresh_testing_db

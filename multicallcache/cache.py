@@ -3,10 +3,10 @@ import pandas as pd
 from pathlib import Path
 import os
 
-from multicall.call import Call
-from multicall.constants import CACHE_PATH
-from multicall.multicall import CallRawData, Multicall
-from multicall.utils import flatten, time_function
+from multicallcache.call import Call
+from multicallcache.constants import CACHE_PATH
+from multicallcache.multicall import CallRawData, Multicall
+from multicallcache.utils import flatten, time_function
 
 # from multicall.constants import CACHE_PATH
 

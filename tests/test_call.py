@@ -1,7 +1,7 @@
 import pytest
 import web3
-from multicall.call import Call, NOT_A_CONTRACT_REVERT_MESSAGE
-from multicall.constants import TEST_CACHE_PATH, W3
+from multicallcache.call import Call, NOT_A_CONTRACT_REVERT_MESSAGE
+from multicallcache.constants import TEST_CACHE_PATH, W3
 from helpers import refresh_testing_db, TEST_BLOCK
 
 

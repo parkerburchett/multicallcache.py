@@ -1,7 +1,7 @@
 import pandas as pd
 
-from multicall.fetch_multicall_across_blocks import fetch_save_and_return
-from multicall.constants import W3, TEST_CACHE_PATH
+from multicallcache.fetch_multicall_across_blocks import fetch_save_and_return
+from multicallcache.constants import W3, TEST_CACHE_PATH
 from helpers import weth_bal, usdc_bal, invalid_function, target_has_no_code, weth_bal2, refresh_testing_db
 
 

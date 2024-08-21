@@ -7,10 +7,10 @@ import multiprocessing
 from multiprocessing import Pool
 import pickle
 
-from multicall.cache import create_db, delete_db
-from multicall.constants import TEST_CACHE_PATH, CACHE_PATH, W3
-from multicall.utils import time_function
-from multicall.call import Call
+from multicallcache.cache import create_db, delete_db
+from multicallcache.constants import TEST_CACHE_PATH, CACHE_PATH, W3
+from multicallcache.utils import time_function
+from multicallcache.call import Call
 
 test_data_path = Path(__file__).parent / "test_data"
 

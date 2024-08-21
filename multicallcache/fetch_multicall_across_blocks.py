@@ -10,11 +10,11 @@ from aiolimiter import AsyncLimiter
 import nest_asyncio
 
 
-from multicall.call import Call
-from multicall.multicall import Multicall
-from multicall.utils import flatten, time_function
-from multicall.cache import save_data, get_data_from_disk
-from multicall.constants import CACHE_PATH
+from multicallcache.call import Call
+from multicallcache.multicall import Multicall
+from multicallcache.utils import flatten, time_function
+from multicallcache.cache import save_data, get_data_from_disk
+from multicallcache.constants import CACHE_PATH
 
 nest_asyncio.apply()
 

@@ -9,9 +9,9 @@ from web3 import Web3, exceptions
 
 
 # from multicall.cache import get_one_value # circular import issues
-from multicall.signature import Signature
-from multicall.constants import CACHE_PATH
-from multicall.utils import chain_id
+from multicallcache.signature import Signature
+from multicallcache.constants import CACHE_PATH
+from multicallcache.utils import chain_id
 
 
 # single tx gas limit. Using Alchemy's max value, not relevent for view only calls where gas is free.
@@ -143,7 +143,7 @@ class Call:
         if isinstance(block_id, int):
             # TODO this is for circular import issues, (call.py <-> cache.py)
             # refactor these to not have circular imports or need to import here
-            from multicall.cache import get_isCached_success_raw_bytes_output_for_a_single_call
+            from multicallcache.cache import get_isCached_success_raw_bytes_output_for_a_single_call
 
             # step 1 if we already have it return it, most happy path, only 1 call
             isCached, success, raw_bytes_output = get_isCached_success_raw_bytes_output_for_a_single_call(
@@ -185,6 +185,6 @@ def _save_data(w3: Web3, call: Call, block: int, cache_path: Path):
     2. if not local: fetch, save to disk
 
     """
-    from multicall.fetch_multicall_across_blocks import simple_sequential_fetch_multicalls_across_blocks_and_save
+    from multicallcache.fetch_multicall_across_blocks import simple_sequential_fetch_multicalls_across_blocks_and_save
 
     simple_sequential_fetch_multicalls_across_blocks_and_save([call], [block], w3, cache_path)
